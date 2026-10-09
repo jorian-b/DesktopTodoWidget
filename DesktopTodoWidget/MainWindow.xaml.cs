@@ -1,7 +1,4 @@
-using System.Collections.ObjectModel;
-using System.Globalization;
 using System.IO;
-using System.Text.Json;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
@@ -20,20 +17,18 @@ namespace DesktopTodoWidget
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "DesktopTodoWidget",
             "tasks.json"));
-        private readonly string SettingsPath = Path.Combine(
+        private readonly WidgetSettingsStore _settingsStore = new(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "DesktopTodoWidget",
-            "settings.json");
+            "settings.json"));
+        private TaskGroupSelectorController _taskGroupSelector = null!;
+        private TaskInteractionController _taskInteractions = null!;
+        private TaskAlarmPresenter _alarmPresenter = null!;
         private bool _isLocked = false;
         private bool _keepBackgroundVisible;
-        private bool _isUpdatingTaskSetSelector;
-        private ObservableCollection<string> _customTaskGroups => _taskManager.CustomTaskGroups;
-        private TaskListMode _taskListMode => _taskManager.SelectedMode;
-        private string? _selectedCustomTaskGroup => _taskManager.SelectedCustomGroup;
         private bool _isWidgetHovered;
         private System.Windows.Threading.DispatcherTimer? _reminderTimer;
         private System.Windows.Threading.DispatcherTimer? _settingsSaveTimer;
-        private readonly Queue<(string Task, string Detail, string Group)> _pendingAlarms = new();
 
         public MainWindow()
         {
@@ -41,6 +36,23 @@ namespace DesktopTodoWidget
             try
             {
                 InitializeComponent();
+                _taskGroupSelector = new TaskGroupSelectorController(
+                    TaskSetSelector,
+                    DeleteTaskGroupButton,
+                    _taskManager,
+                    this,
+                    SaveWidgetSettings);
+                _taskInteractions = new TaskInteractionController(
+                    _taskManager,
+                    TaskList,
+                    this,
+                    SaveTasks);
+                _alarmPresenter = new TaskAlarmPresenter(
+                    _taskManager,
+                    SelectTaskGroup,
+                    AlarmOverlay,
+                    AlarmTaskText,
+                    AlarmDetailText);
                 LogDiagnostic("InitializeComponent Done");
 
                 _settingsSaveTimer = new System.Windows.Threading.DispatcherTimer
@@ -54,7 +66,7 @@ namespace DesktopTodoWidget
                 };
                 LoadWidgetSettings();
                 UpdateHoverVisibilityToggle();
-                RefreshTaskSetSelector();
+                _taskGroupSelector.Refresh();
                 LocationChanged += (_, _) => ScheduleWidgetSettingsSave();
                 SizeChanged += (_, _) => ScheduleWidgetSettingsSave();
                 Closed += (_, _) =>
@@ -263,7 +275,7 @@ namespace DesktopTodoWidget
 
         private void AddTask_Click(object sender, RoutedEventArgs e)
         {
-            if (_taskListMode is TaskListMode.Inactive or TaskListMode.Trash)
+            if (_taskManager.SelectedMode is TaskListMode.Inactive or TaskListMode.Trash)
             {
                 SelectTaskGroup("Daily");
             }
@@ -318,7 +330,7 @@ namespace DesktopTodoWidget
             _isWidgetHovered = true;
             BackgroundSurface.Opacity = 1;
             MainFrame.BorderBrush = new SolidColorBrush(Color.FromArgb(0x33, 255, 255, 255));
-            SetTaskBubbleSurfaces(true);
+            TaskCardVisuals.Refresh(TaskList, true);
             LockToggle.Visibility = Visibility.Visible;
             PinToggle.Visibility = Visibility.Visible;
             HoverVisibilityToggle.Visibility = Visibility.Visible;
@@ -350,7 +362,7 @@ namespace DesktopTodoWidget
             _isWidgetHovered = false;
             BackgroundSurface.Opacity = _keepBackgroundVisible ? 1 : 0;
             MainFrame.BorderBrush = Brushes.Transparent;
-            SetTaskBubbleSurfaces(false);
+            TaskCardVisuals.Refresh(TaskList, false);
             LockToggle.Visibility = Visibility.Collapsed;
             PinToggle.Visibility = Visibility.Collapsed;
             HoverVisibilityToggle.Visibility = Visibility.Collapsed;
@@ -363,279 +375,37 @@ namespace DesktopTodoWidget
         {
             if (sender is Border taskCard)
             {
-                SetTaskCardSurface(taskCard, _isWidgetHovered);
+                TaskCardVisuals.Update(taskCard, _isWidgetHovered);
             }
-        }
-
-        private void SetTaskBubbleSurfaces(bool isHovered)
-        {
-            for (int index = 0; index < TaskList.Items.Count; index++)
-            {
-                if (TaskList.ItemContainerGenerator.ContainerFromIndex(index) is DependencyObject container)
-                {
-                    UpdateTaskCardSurface(container, isHovered);
-                }
-            }
-        }
-
-        private static void UpdateTaskCardSurface(DependencyObject element, bool isHovered)
-        {
-            if (element is Border border && Equals(border.Tag, "TaskCard"))
-            {
-                SetTaskCardSurface(border, isHovered);
-            }
-
-            for (int index = 0; index < VisualTreeHelper.GetChildrenCount(element); index++)
-            {
-                UpdateTaskCardSurface(VisualTreeHelper.GetChild(element, index), isHovered);
-            }
-        }
-
-        private static void SetTaskCardSurface(Border taskCard, bool isHovered)
-        {
-            taskCard.Background = new SolidColorBrush(Color.FromArgb(0x80, 0, 0, 0));
-            taskCard.BorderBrush = isHovered
-                ? new SolidColorBrush(Color.FromArgb(0x66, 255, 255, 255))
-                : new SolidColorBrush(Color.FromArgb(0x38, 255, 255, 255));
         }
 
         private void TaskSetSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (_isUpdatingTaskSetSelector ||
-                TaskSetSelector.SelectedItem is not ComboBoxItem selectedItem ||
-                selectedItem.Tag is not string selection)
+            if (_taskGroupSelector.HandleSelectionChanged())
             {
-                return;
+                UpdateTaskListMaxHeight();
             }
-
-            if (!_taskManager.SelectTaskSet(selection))
-            {
-                return;
-            }
-
-            UpdateTaskListMaxHeight();
-            UpdateDeleteTaskGroupButton();
         }
 
-        private void AddTaskGroup_Click(object sender, RoutedEventArgs e)
-        {
-            var nameInput = CreateDialogTextInput(string.Empty);
-            var dialog = new Window
-            {
-                Title = "New task group",
-                Width = 300,
-                Height = 150,
-                ResizeMode = ResizeMode.NoResize,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this,
-                WindowStyle = WindowStyle.ToolWindow,
-                Background = Brushes.White,
-                Foreground = Brushes.Black
-            };
+        private void AddTaskGroup_Click(object sender, RoutedEventArgs e) =>
+            _taskGroupSelector.AddCustomGroup();
 
-            var content = new StackPanel { Margin = new Thickness(18) };
-            content.Children.Add(new TextBlock { Text = "Group name" });
-            content.Children.Add(nameInput);
-            var actions = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right
-            };
-            var cancelButton = new Button
-            {
-                Content = "Cancel",
-                MinWidth = 72,
-                Margin = new Thickness(0, 0, 8, 0),
-                IsCancel = true
-            };
-            var createButton = new Button { Content = "Create", MinWidth = 72, IsDefault = true };
-            cancelButton.Click += (_, _) => dialog.DialogResult = false;
-            createButton.Click += (_, _) =>
-            {
-                string name = nameInput.Text.Trim();
-                if (string.IsNullOrWhiteSpace(name))
-                {
-                    MessageBox.Show(dialog, "Enter a group name.", "Invalid group name", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                if (!_taskManager.TryAddCustomGroup(name))
-                {
-                    string message = string.IsNullOrWhiteSpace(name)
-                        ? "Enter a group name."
-                        : "That group name is already in use.";
-                    MessageBox.Show(dialog, message, "Invalid group name", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                RefreshTaskSetSelector(name);
-                SaveWidgetSettings();
-                dialog.DialogResult = true;
-            };
-            actions.Children.Add(cancelButton);
-            actions.Children.Add(createButton);
-            content.Children.Add(actions);
-            dialog.Content = content;
-            dialog.ShowDialog();
-        }
-
-        private void RefreshTaskSetSelector(string? selectedGroup = null)
-        {
-            _isUpdatingTaskSetSelector = true;
-            TaskSetSelector.Items.Clear();
-            TaskSetSelector.Items.Add(new ComboBoxItem { Content = "Daily", Tag = "Daily" });
-            foreach (string group in _customTaskGroups)
-            {
-                TaskSetSelector.Items.Add(new ComboBoxItem { Content = group, Tag = $"Group:{group}" });
-            }
-
-            TaskSetSelector.Items.Add(new ComboBoxItem
-            {
-                Content = new Border
-                {
-                    Height = 1,
-                    Margin = new Thickness(10, 3, 10, 3),
-                    Background = new SolidColorBrush(Color.FromArgb(0x55, 255, 255, 255))
-                },
-                IsEnabled = false,
-                Focusable = false
-            });
-            TaskSetSelector.Items.Add(new ComboBoxItem { Content = "Inactive", Tag = "Inactive" });
-            TaskSetSelector.Items.Add(new ComboBoxItem { Content = "Trash", Tag = "Trash" });
-
-            string selection = selectedGroup == null
-                ? _taskListMode switch
-                {
-                    TaskListMode.Daily => "Daily",
-                    TaskListMode.Inactive => "Inactive",
-                    TaskListMode.Trash => "Trash",
-                    _ => $"Group:{_selectedCustomTaskGroup}"
-                }
-                : $"Group:{selectedGroup}";
-            TaskSetSelector.SelectedItem = TaskSetSelector.Items
-                .OfType<ComboBoxItem>()
-                .FirstOrDefault(item => Equals(item.Tag, selection))
-                ?? TaskSetSelector.Items[0];
-            _isUpdatingTaskSetSelector = false;
-
-            UpdateDeleteTaskGroupButton();
-        }
-
-        private void UpdateDeleteTaskGroupButton()
-        {
-            DeleteTaskGroupButton.Visibility = _taskListMode == TaskListMode.Custom
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-        }
-
-        private void DeleteTaskGroup_Click(object sender, RoutedEventArgs e)
-        {
-            if (_taskListMode != TaskListMode.Custom || _selectedCustomTaskGroup is not string groupName)
-            {
-                return;
-            }
-
-            if (_taskManager.CustomGroupHasTasks(groupName))
-            {
-                MessageBox.Show(
-                    this,
-                    "This group still contains tasks. Move or delete its tasks before deleting the group.",
-                    "Group is not empty",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Information);
-                return;
-            }
-
-            MessageBoxResult confirmation = MessageBox.Show(
-                this,
-                $"Delete the empty group \"{groupName}\"?",
-                "Delete task group",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-            if (confirmation != MessageBoxResult.Yes)
-            {
-                return;
-            }
-
-            _taskManager.RemoveEmptyCustomGroup(groupName);
-            RefreshTaskSetSelector();
-            SaveWidgetSettings();
-        }
+        private void DeleteTaskGroup_Click(object sender, RoutedEventArgs e) =>
+            _taskGroupSelector.DeleteSelectedGroup();
 
         private void SelectTaskGroup(string groupName)
         {
-            _taskManager.SelectTaskGroup(groupName);
-            RefreshTaskSetSelector();
+            _taskGroupSelector.SelectTaskGroup(groupName);
         }
 
-        private void Reminder_Click(object sender, RoutedEventArgs e)
-        {
-            if ((sender as FrameworkElement)?.DataContext is not TaskItem item)
-            {
-                return;
-            }
+        private void Reminder_Click(object sender, RoutedEventArgs e) =>
+            _taskInteractions.OpenReminder(sender);
 
-            var dialog = new ReminderDialog(item) { Owner = this };
-            if (dialog.ShowDialog() != true)
-            {
-                return;
-            }
+        private void TestAlarm_Click(object sender, RoutedEventArgs e) =>
+            _alarmPresenter.Test(sender);
 
-            _taskManager.SetReminder(
-                item,
-                dialog.DueAt,
-                dialog.ReminderMinutesBefore,
-                dialog.Recurrence,
-                dialog.RecurrenceDays);
-            SaveTasks();
-        }
-
-        private void TestAlarm_Click(object sender, RoutedEventArgs e)
-        {
-            if ((sender as FrameworkElement)?.DataContext is TaskItem item)
-            {
-                ShowAlarmOverlay(item.Text, "Test alarm", _taskManager.GetTaskSetName(item));
-            }
-        }
-
-        private void DismissAlarm_Click(object sender, RoutedEventArgs e)
-        {
-            if (_pendingAlarms.Count > 0)
-            {
-                var nextAlarm = _pendingAlarms.Dequeue();
-                ShowAlarmOverlay(nextAlarm.Task, nextAlarm.Detail, nextAlarm.Group, enqueueWhenVisible: false);
-                return;
-            }
-
-            AlarmOverlay.Visibility = Visibility.Collapsed;
-        }
-
-        private void ShowAlarmOverlay(string taskText, string detail, string? groupName = null, bool enqueueWhenVisible = true)
-        {
-            if (AlarmOverlay.Visibility == Visibility.Visible && enqueueWhenVisible)
-            {
-                _pendingAlarms.Enqueue((taskText, detail, groupName ?? "Daily"));
-                return;
-            }
-
-            SelectTaskGroup(groupName ?? "Daily");
-            AlarmTaskText.Text = taskText;
-            AlarmDetailText.Text = detail;
-            AlarmOverlay.Visibility = Visibility.Visible;
-            System.Media.SystemSounds.Exclamation.Play();
-        }
-
-        private static TextBox CreateDialogTextInput(string text)
-        {
-            return new TextBox
-            {
-                Text = text,
-                Height = 30,
-                Padding = new Thickness(8, 4, 8, 4),
-                Margin = new Thickness(0, 4, 0, 12),
-                VerticalContentAlignment = VerticalAlignment.Center
-            };
-        }
+        private void DismissAlarm_Click(object sender, RoutedEventArgs e) =>
+            _alarmPresenter.Dismiss();
 
         private void StartReminderTimer()
         {
@@ -658,7 +428,7 @@ namespace DesktopTodoWidget
 
             foreach (TaskAlarm alarm in result.Alarms)
             {
-                ShowAlarmOverlay(alarm.Task, alarm.Detail, alarm.Group);
+                _alarmPresenter.Show(alarm.Task, alarm.Detail, alarm.Group);
             }
         }
 
@@ -729,94 +499,38 @@ namespace DesktopTodoWidget
             TaskList.MaxHeight = Math.Max(0, availableHeight);
         }
 
-        private void Checkbox_Changed(object sender, RoutedEventArgs e)
-        {
-            if ((sender as CheckBox)?.DataContext is TaskItem item)
-            {
-                _taskManager.SetTaskChecked(item, DateTime.Now);
-            }
+        private void Checkbox_Changed(object sender, RoutedEventArgs e) =>
+            _taskInteractions.CheckChanged(sender);
 
-            SaveTasks();
-        }
+        private void Delete_Click(object sender, RoutedEventArgs e) =>
+            _taskInteractions.Delete(sender);
 
-        private void Delete_Click(object sender, RoutedEventArgs e)
-        {
-            if ((sender as Button)?.DataContext is TaskItem item)
-            {
-                _taskManager.DeleteTask(item, DateTime.Now);
-                SaveTasks();
-            }
-        }
+        private void RestoreTask_Click(object sender, RoutedEventArgs e) =>
+            _taskInteractions.Restore(sender);
 
-        private void RestoreTask_Click(object sender, RoutedEventArgs e)
-        {
-            if ((sender as FrameworkElement)?.DataContext is not TaskItem item ||
-                !_taskManager.RestoreTask(item))
-            {
-                return;
-            }
+        private void ClearAlarm_Click(object sender, RoutedEventArgs e) =>
+            _taskInteractions.ClearAlarm(sender);
 
-            SaveTasks();
-        }
+        private void UrgentToggle_Click(object sender, RoutedEventArgs e) =>
+            _taskInteractions.UrgentChanged(sender);
 
-        private void ClearAlarm_Click(object sender, RoutedEventArgs e)
-        {
-            if ((sender as FrameworkElement)?.DataContext is TaskItem item)
-            {
-                item.ReminderMinutesBefore = null;
-                item.ReminderTriggered = false;
-                SaveTasks();
-                TaskList.Items.Refresh();
-            }
-        }
+        private void TaskList_PreviewMouseMove(object sender, MouseEventArgs e) =>
+            _taskInteractions.BeginReorder(e);
 
-        private void UrgentToggle_Click(object sender, RoutedEventArgs e)
-        {
-            if ((sender as FrameworkElement)?.DataContext is TaskItem)
-            {
-                SaveTasks();
-                TaskList.Items.Refresh();
-            }
-        }
-
-        private void TaskList_PreviewMouseMove(object sender, MouseEventArgs e)
-        {
-            if (e.LeftButton == MouseButtonState.Pressed)
-            {
-                var item = TaskList.SelectedItem;
-                if (item != null)
-                {
-                    DragDrop.DoDragDrop(TaskList, item, DragDropEffects.Move);
-                }
-            }
-        }
-
-        private void TaskList_Drop(object sender, DragEventArgs e)
-        {
-            if (e.Data.GetData(typeof(TaskItem)) is TaskItem dropped)
-            {
-                var target = ((FrameworkElement)e.OriginalSource).DataContext as TaskItem;
-                if (target == null || dropped == null) return;
-
-                if (_taskManager.MoveTask(dropped, target))
-                {
-                    SaveTasks();
-                }
-            }
-        }
+        private void TaskList_Drop(object sender, DragEventArgs e) =>
+            _taskInteractions.Drop(e);
 
         private void LoadTasks()
         {
             try
             {
-                _taskManager.Load(_customTaskGroups.ToArray());
+                _taskManager.Load(_taskManager.CustomTaskGroups.ToArray());
             }
             catch (Exception ex)
             {
                 LogDiagnostic($"LoadTasks Error: {ex.Message}");
             }
-            RefreshTaskSetSelector();
-            RefreshTaskSetSelector();
+            _taskGroupSelector.Refresh();
         }
 
         private void SaveTasks()
@@ -835,12 +549,7 @@ namespace DesktopTodoWidget
         {
             try
             {
-                if (!File.Exists(SettingsPath))
-                {
-                    return;
-                }
-
-                var settings = JsonSerializer.Deserialize<WidgetSettings>(File.ReadAllText(SettingsPath));
+                var settings = _settingsStore.Load();
                 if (settings == null)
                 {
                     return;
@@ -890,7 +599,6 @@ namespace DesktopTodoWidget
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(SettingsPath)!);
                 var settings = new WidgetSettings
                 {
                     Left = Left,
@@ -900,9 +608,9 @@ namespace DesktopTodoWidget
                     IsLocked = _isLocked,
                     IsPinned = Topmost,
                     KeepBackgroundVisible = _keepBackgroundVisible,
-                    CustomTaskGroups = _customTaskGroups.ToList()
+                    CustomTaskGroups = _taskManager.CustomTaskGroups.ToList()
                 };
-                File.WriteAllText(SettingsPath, JsonSerializer.Serialize(settings));
+                _settingsStore.Save(settings);
             }
             catch (Exception ex)
             {
