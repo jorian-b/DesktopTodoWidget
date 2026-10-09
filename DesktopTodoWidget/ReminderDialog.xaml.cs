@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 
 namespace DesktopTodoWidget
 {
@@ -16,7 +17,10 @@ namespace DesktopTodoWidget
         {
             InitializeComponent();
             TaskName.Text = item.Text;
-            DueDatePicker.SelectedDate = item.DueAt?.Date ?? DateTime.Today;
+            DateTime initialDate = item.DueAt?.Date ?? DateTime.Today;
+            DueCalendar.SelectedDate = initialDate;
+            DueCalendar.DisplayDate = initialDate;
+            UpdateDateText(initialDate);
             TimeInput.Text = item.DueAt?.ToString("HH:mm", CultureInfo.InvariantCulture) ?? "09:00";
 
             AlertChoice.Items.Add(new ComboBoxItem { Content = "No alert", Tag = "none" });
@@ -44,6 +48,39 @@ namespace DesktopTodoWidget
             }
         }
 
+        private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Left && e.OriginalSource is not ButtonBase)
+            {
+                try
+                {
+                    DragMove();
+                }
+                catch (InvalidOperationException)
+                {
+                }
+            }
+        }
+
+        private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+
+        private void DateButton_Click(object sender, RoutedEventArgs e)
+        {
+            CalendarPopup.IsOpen = !CalendarPopup.IsOpen;
+        }
+
+        private void DueCalendar_SelectedDatesChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (DueCalendar.SelectedDate is DateTime selectedDate)
+            {
+                UpdateDateText(selectedDate);
+                CalendarPopup.IsOpen = false;
+            }
+        }
+
+        private void UpdateDateText(DateTime date) =>
+            DateText.Text = date.ToString("ddd, MMM d, yyyy", CultureInfo.CurrentCulture);
+
         private void RecurrenceChoice_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             bool usesSelectedWeekdays =
@@ -56,7 +93,7 @@ namespace DesktopTodoWidget
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
-            if (DueDatePicker.SelectedDate is not DateTime selectedDate ||
+            if (DueCalendar.SelectedDate is not DateTime selectedDate ||
                 !TimeSpan.TryParseExact(TimeInput.Text, @"hh\:mm", CultureInfo.InvariantCulture, out TimeSpan selectedTime) ||
                 selectedTime >= TimeSpan.FromDays(1))
             {

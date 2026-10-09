@@ -8,8 +8,18 @@
         MaxHeight="760"
         ResizeMode="CanResize"
         WindowStartupLocation="CenterOwner"
-        WindowStyle="ToolWindow"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
         Style="{DynamicResource ReminderDialogWindowStyle}">
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0"
+                      ResizeBorderThickness="7"
+                      CornerRadius="0"
+                      GlassFrameThickness="0"/>
+    </WindowChrome.WindowChrome>
+
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -26,12 +36,28 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <StackPanel Grid.Row="0" Margin="0,0,0,18">
-                <TextBlock Text="Schedule task"
-                           Style="{StaticResource ReminderDialogTitleStyle}"/>
-                <TextBlock x:Name="TaskName"
-                           Style="{StaticResource ReminderDialogTaskNameStyle}"/>
-            </StackPanel>
+            <Grid Grid.Row="0"
+                  Margin="0,0,0,18"
+                  MouseLeftButtonDown="Header_MouseLeftButtonDown"
+                  WindowChrome.IsHitTestVisibleInChrome="True">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Schedule task"
+                               Style="{StaticResource ReminderDialogTitleStyle}"/>
+                    <TextBlock x:Name="TaskName"
+                               Style="{StaticResource ReminderDialogTaskNameStyle}"/>
+                </StackPanel>
+                <Button Grid.Column="1"
+                        Content="&#xE8BB;"
+                        FontFamily="Segoe MDL2 Assets"
+                        Style="{StaticResource ReminderDialogCloseButtonStyle}"
+                        Click="CloseButton_Click"
+                        ToolTip="Close"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
+            </Grid>
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                 <StackPanel>
@@ -43,15 +69,53 @@
                             <ColumnDefinition Width="12"/>
                             <ColumnDefinition Width="120"/>
                         </Grid.ColumnDefinitions>
-                        <DatePicker x:Name="DueDatePicker"
-                                    Grid.Column="0"
-                                    VerticalContentAlignment="Center"
-                                    Style="{StaticResource ReminderDialogDatePickerStyle}"/>
+                        <Grid Grid.Column="0">
+                            <Button x:Name="DateButton"
+                                    Click="DateButton_Click"
+                                    Style="{StaticResource ReminderDialogDateButtonStyle}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="&#xE787;"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               FontSize="14"
+                                               Foreground="#168A6A"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,10,0"/>
+                                    <TextBlock x:Name="DateText"
+                                               Grid.Column="1"
+                                               Foreground="#202938"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="&#xE70D;"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               FontSize="10"
+                                               Foreground="#748196"
+                                               VerticalAlignment="Center"
+                                               Margin="10,0,0,0"/>
+                                </Grid>
+                            </Button>
+                            <Popup x:Name="CalendarPopup"
+                                   PlacementTarget="{Binding ElementName=DateButton}"
+                                   Placement="Bottom"
+                                   StaysOpen="False"
+                                   AllowsTransparency="True"
+                                   PopupAnimation="Fade">
+                                <Border Style="{StaticResource ReminderCalendarPopupStyle}">
+                                    <Calendar x:Name="DueCalendar"
+                                              SelectedDatesChanged="DueCalendar_SelectedDatesChanged"
+                                              Style="{StaticResource ReminderCalendarStyle}"/>
+                                </Border>
+                            </Popup>
+                        </Grid>
                         <TextBox x:Name="TimeInput"
                                  Grid.Column="2"
                                  MaxLength="5"
                                  VerticalContentAlignment="Center"
-                                 Style="{StaticResource ReminderDialogInputStyle}"
+                                 Style="{StaticResource ReminderDialogTimeInputStyle}"
                                  ToolTip="24-hour time, for example 09:30"/>
                     </Grid>
 
