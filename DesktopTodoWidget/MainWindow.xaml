@@ -1,0 +1,727 @@
+<Window x:Class="DesktopTodoWidget.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="DesktopTodoWidget.ico"
+        Title="Todo"
+        Width="340"
+        Height="500"
+        MinWidth="280"
+        MinHeight="260"
+        WindowStyle="None"
+        ResizeMode="CanResizeWithGrip"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="False"
+        ShowInTaskbar="False">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="0" 
+                      ResizeBorderThickness="8" 
+                      CornerRadius="0" 
+                      GlassFrameThickness="0" />
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <Style x:Key="ProfessionalButtonStyle" TargetType="ButtonBase">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#B8FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ButtonBase">
+                        <Border Background="Transparent" 
+                                CornerRadius="8" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                BorderBrush="{TemplateBinding BorderBrush}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Opacity" Value="0.65"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="LockButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource ProfessionalButtonStyle}">
+            <Setter Property="Foreground" Value="#A0A0A0"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#D8D8D8"/>
+                </Trigger>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PinButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource ProfessionalButtonStyle}">
+            <Setter Property="Foreground" Value="#A0A0A0"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#D8D8D8"/>
+                </Trigger>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CloseButtonStyle" TargetType="Button" BasedOn="{StaticResource ProfessionalButtonStyle}">
+            <Setter Property="Foreground" Value="#FF6B6B"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#FF9A9A"/>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Foreground" Value="#FF4242"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DialogButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#666666"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#222222"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DialogAccentButtonStyle" TargetType="Button" BasedOn="{StaticResource DialogButtonStyle}">
+            <Setter Property="Foreground" Value="#008F6B"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#00A87E"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="TaskSetSelectorStyle" TargetType="ComboBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#B8FFFFFF"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="DropDownToggle"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Focusable="False">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent">
+                                            <ContentPresenter HorizontalAlignment="Stretch"
+                                                              VerticalAlignment="Stretch"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <Grid Margin="6,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="&#xE70D;"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               FontSize="10"
+                                               Foreground="{TemplateBinding Foreground}"
+                                               VerticalAlignment="Center"
+                                               Margin="8,0,2,0"/>
+                                </Grid>
+                            </ToggleButton>
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Fade">
+                                <Border Background="#F21A1A1A"
+                                        BorderBrush="#44FFFFFF"
+                                        BorderThickness="1"
+                                        MinWidth="{TemplateBinding ActualWidth}">
+                                    <ScrollViewer MaxHeight="300"
+                                                  CanContentScroll="True">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TaskSetSelectorItemStyle" TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#CC1A1A1A"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Style.Triggers>
+                <Trigger Property="IsHighlighted" Value="True">
+                    <Setter Property="Background" Value="#334A4A4A"/>
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Foreground" Value="#00C896"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="AddButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#00C896"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="FontSize" Value="34"/>
+            <Setter Property="FontWeight" Value="Light"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#66E0C0"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DeleteButtonStyle" TargetType="Button" BasedOn="{StaticResource ProfessionalButtonStyle}">
+            <Setter Property="Foreground" Value="#FF6B6B"/>
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#FF9A9A"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="TaskCheckBoxStyle" TargetType="CheckBox">
+            <Setter Property="Width" Value="20"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid Background="{TemplateBinding Background}">
+                            <TextBlock x:Name="CheckOutline"
+                                       Text="○"
+                                       Foreground="#B8FFFFFF"
+                                       FontSize="18"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Visibility="Collapsed"/>
+                            <TextBlock x:Name="CheckGlyph"
+                                       Text="✓"
+                                       Foreground="#00C896"
+                                       FontSize="18"
+                                       FontWeight="Bold"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Visibility="Collapsed"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="CheckOutline" Property="Visibility" Value="Collapsed"/>
+                                <Setter TargetName="CheckGlyph" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CheckOutline" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="AlarmIndicatorStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="4,0"/>
+            <Setter Property="Foreground" Value="#00C896"/>
+            <Setter Property="FontSize" Value="22"/>
+            <Setter Property="Visibility" Value="Collapsed"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="4,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding HasReminder}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
+                    <Setter Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#66E0C0"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid x:Name="MainRoot" Margin="6" MouseEnter="MainRoot_MouseEnter" MouseLeave="MainRoot_MouseLeave">
+        <!-- Background -->
+        <Border x:Name="BackgroundSurface" CornerRadius="8" Background="#CC1A1A1A" Opacity="0">
+        </Border>
+
+        <!-- Main Content -->
+        <Border x:Name="MainFrame" CornerRadius="8" BorderBrush="Transparent" BorderThickness="1" Background="Transparent" Padding="12">
+            <Grid x:Name="TaskContentGrid"
+                  SizeChanged="TaskContentGrid_SizeChanged"
+                  Loaded="TaskContentGrid_Loaded">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <DockPanel x:Name="HeaderPanel" LastChildFill="False" Margin="0,0,0,8">
+                    <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" WindowChrome.IsHitTestVisibleInChrome="True">
+                        <ToggleButton x:Name="LockToggle"
+                                      Width="32"
+                                      Height="32"
+                                      Margin="0,0,8,0"
+                                      Visibility="Collapsed"
+                                      Checked="LockToggle_Click"
+                                      Unchecked="LockToggle_Click"
+                                      Style="{StaticResource LockButtonStyle}">
+                            <ToggleButton.Content>
+                                <TextBlock Text="&#xE785;" x:Name="LockIcon" FontFamily="Segoe MDL2 Assets" FontSize="16"/>
+                            </ToggleButton.Content>
+                        </ToggleButton>
+
+                        <ToggleButton x:Name="PinToggle"
+                                      Width="32"
+                                      Height="32"
+                                      Margin="0,0,8,0"
+                                      Visibility="Collapsed"
+                                      Checked="PinToggle_Click"
+                                      Unchecked="PinToggle_Click"
+                                      ToolTip="Keep on top"
+                                      Style="{StaticResource PinButtonStyle}">
+                            <ToggleButton.Content>
+                                <TextBlock Text="&#xE718;"
+                                           x:Name="PinIcon"
+                                           FontFamily="Segoe MDL2 Assets"
+                                           FontSize="16"
+                                           RenderTransformOrigin="0.5,0.5">
+                                    <TextBlock.RenderTransform>
+                                        <RotateTransform Angle="0"/>
+                                    </TextBlock.RenderTransform>
+                                </TextBlock>
+                            </ToggleButton.Content>
+                        </ToggleButton>
+
+                        <ToggleButton x:Name="HoverVisibilityToggle"
+                                      Width="32"
+                                      Height="32"
+                                      Margin="0,0,8,0"
+                                      Visibility="Collapsed"
+                                      Checked="HoverVisibilityToggle_Click"
+                                      Unchecked="HoverVisibilityToggle_Click"
+                                      Style="{StaticResource PinButtonStyle}">
+                            <ToggleButton.Content>
+                                <Grid Width="18" Height="18">
+                                    <TextBlock x:Name="HoverVisibilityIcon"
+                                               Text="&#xE890;"
+                                               FontFamily="Segoe MDL2 Assets"
+                                               FontSize="16"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                    <Path x:Name="HoverVisibilitySlash"
+                                          Data="M 3,3 L 15,15"
+                                          Stroke="#A0A0A0"
+                                          StrokeThickness="2"
+                                          StrokeStartLineCap="Round"
+                                          StrokeEndLineCap="Round"
+                                          Visibility="Visible"/>
+                                </Grid>
+                            </ToggleButton.Content>
+                        </ToggleButton>
+                        
+                        <Button x:Name="CloseButton"
+                            Content="✕"
+                                Width="32"
+                                Height="32"
+                                Click="Close_Click"
+                                Style="{StaticResource CloseButtonStyle}"/>
+                    </StackPanel>
+                </DockPanel>
+
+                <!-- Input Field -->
+                <TextBox x:Name="TaskInput"
+                         Grid.Row="1"
+                         Height="40"
+                         Margin="0,0,0,8"
+                         Padding="10,8"
+                         Visibility="Collapsed"
+                         KeyDown="TaskInput_KeyDown"
+                         LostFocus="TaskInput_LostFocus"
+                         Background="#2A2A2A"
+                         Foreground="White"
+                         CaretBrush="White"
+                         BorderThickness="1"
+                         BorderBrush="#44FFFFFF"
+                         FontSize="14"
+                         VerticalContentAlignment="Center"
+                         WindowChrome.IsHitTestVisibleInChrome="True"/>
+
+                <!-- Task List -->
+                <ListBox x:Name="TaskList"
+                         Grid.Row="2"
+                         MaxHeight="0"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         Padding="0"
+                         AllowDrop="True"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         PreviewMouseMove="TaskList_PreviewMouseMove"
+                         Drop="TaskList_Drop"
+                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                         HorizontalContentAlignment="Stretch"
+                         WindowChrome.IsHitTestVisibleInChrome="True">
+                    
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="BorderThickness" Value="0"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                                <Border CornerRadius="6"
+                                    Padding="8"
+                                    Margin="0,0,0,6"
+                                        BorderThickness="1"
+                                        Background="#01000000"
+                                        BorderBrush="Transparent"
+                                        Tag="TaskCard"
+                                        Loaded="TaskCard_Loaded">
+                                <Border.ContextMenu>
+                                    <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                                        <MenuItem Header="Set date, reminder and repeat..." Click="Reminder_Click"/>
+                                        <MenuItem Header="Test alarm" Click="TestAlarm_Click"/>
+                                        <MenuItem Header="Clear alarm" Click="ClearAlarm_Click"/>
+                                        <Separator/>
+                                        <MenuItem Header="Urgent"
+                                                  IsCheckable="True"
+                                                  IsChecked="{Binding IsUrgent, Mode=TwoWay}"
+                                                  Click="UrgentToggle_Click"/>
+                                        <MenuItem Header="Restore"
+                                                  Click="RestoreTask_Click">
+                                            <MenuItem.Style>
+                                                <Style TargetType="MenuItem">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasPendingRemoval}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </MenuItem.Style>
+                                        </MenuItem>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+
+                                    <Grid Width="24" Height="24" Margin="0,0,12,0">
+                                        <CheckBox x:Name="TaskCheckBox"
+                                                  IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                                  Style="{StaticResource TaskCheckBoxStyle}"
+                                                  VerticalAlignment="Center"
+                                                  Checked="Checkbox_Changed"
+                                                  Unchecked="Checkbox_Changed"
+                                                  WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                        <TextBlock Text="!"
+                                                   Foreground="#FFFF5C5C"
+                                                   FontSize="17"
+                                                   FontWeight="Bold"
+                                                   HorizontalAlignment="Right"
+                                                   VerticalAlignment="Top"
+                                                   IsHitTestVisible="False">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding IsUrgent}" Value="True"/>
+                                                                <Condition Binding="{Binding IsChecked}" Value="False"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </MultiDataTrigger>
+                                                        <DataTrigger Binding="{Binding ElementName=TaskCheckBox, Path=IsMouseOver}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+
+                                    <TextBox Grid.Column="1"
+                                             Text="{Binding Text}"
+                                             Background="Transparent"
+                                             BorderThickness="0"
+                                             Foreground="White"
+                                             TextWrapping="Wrap"
+                                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                             MinWidth="0"
+                                             FontSize="15"
+                                             VerticalAlignment="Center"
+                                             CaretBrush="White"
+                                             WindowChrome.IsHitTestVisibleInChrome="True"/>
+
+                                    <TextBlock Grid.Row="1"
+                                               Grid.Column="1"
+                                               Text="{Binding DueAt, StringFormat={}{0:MMM d, HH:mm}}"
+                                               Foreground="#B8FFFFFF"
+                                               FontSize="11"
+                                               Margin="0,4,0,0">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding DueAt}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                        <Button Grid.Column="2"
+                                                Grid.RowSpan="2"
+                                                Content="◷"
+                                                Click="Reminder_Click"
+                                                ToolTip="{Binding ReminderToolTip}"
+                                                Style="{StaticResource AlarmIndicatorStyle}"
+                                                WindowChrome.IsHitTestVisibleInChrome="True"/>
+
+                                        <TextBlock Grid.Column="3"
+                                                   Grid.RowSpan="2"
+                                                   Text="&#xE74D;"
+                                                   FontFamily="Segoe MDL2 Assets"
+                                                   Foreground="#B8FFFFFF"
+                                                   FontSize="15"
+                                                   VerticalAlignment="Center"
+                                                   Margin="4,0"
+                                                   ToolTip="{Binding DiscardToolTip}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DiscardAt}" Value="{x:Null}">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
+                                                        <Button Grid.Column="4"
+                                            Content="✕"
+                                            Width="24"
+                                            Height="24"
+                                            Grid.RowSpan="2"
+                                            Click="Delete_Click"
+                                            ToolTip="{Binding DeleteToolTip}"
+                                            Style="{StaticResource DeleteButtonStyle}"
+                                            WindowChrome.IsHitTestVisibleInChrome="True"/>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Border Grid.Row="2"
+                        Margin="0,0,0,6"
+                        Padding="8,4"
+                        CornerRadius="6"
+                        BorderThickness="1"
+                        BorderBrush="#38FFFFFF"
+                        Background="#80000000"
+                        Opacity="0.3"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding ElementName=TaskList, Path=HasItems}" Value="False">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <TextBlock x:Name="EmptyStateText"
+                               Text="TODO"
+                               Foreground="White"
+                               FontSize="11"
+                               HorizontalAlignment="Right"
+                               TextAlignment="Right"/>
+                </Border>
+
+                <!-- Footer with Add Button -->
+                <Button x:Name="AddButton"
+                        Grid.Row="3"
+                        Content="+"
+                        Height="36"
+                        Width="36"
+                        Margin="0,6,0,0"
+                        HorizontalAlignment="Center"
+                        Visibility="Collapsed"
+                        Click="AddTask_Click"
+                        ToolTip="Add task"
+                        Style="{StaticResource AddButtonStyle}"
+                        WindowChrome.IsHitTestVisibleInChrome="True"/>
+
+                <Grid x:Name="TaskSetBar"
+                      Grid.Row="5"
+                      Visibility="Collapsed"
+                      Margin="0,4,0,0"
+                      WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Button x:Name="DeleteTaskGroupButton"
+                            Content="&#xE74D;"
+                            FontFamily="Segoe MDL2 Assets"
+                            Width="36"
+                            Height="36"
+                            Visibility="Collapsed"
+                            Click="DeleteTaskGroup_Click"
+                            ToolTip="Delete empty group"
+                            Style="{StaticResource DeleteButtonStyle}"
+                            WindowChrome.IsHitTestVisibleInChrome="True"/>
+                    <ComboBox x:Name="TaskSetSelector"
+                              Grid.Column="1"
+                              SelectionChanged="TaskSetSelector_SelectionChanged"
+                              DropDownClosed="TaskSetSelector_DropDownClosed"
+                              Style="{StaticResource TaskSetSelectorStyle}"
+                              ItemContainerStyle="{StaticResource TaskSetSelectorItemStyle}"
+                              WindowChrome.IsHitTestVisibleInChrome="True"/>
+                    <Button Grid.Column="2"
+                            Content="+"
+                            Width="36"
+                            Height="36"
+                            Click="AddTaskGroup_Click"
+                            ToolTip="Add task group"
+                            Style="{StaticResource AddButtonStyle}"
+                            WindowChrome.IsHitTestVisibleInChrome="True"/>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <Grid x:Name="AlarmOverlay" Visibility="Collapsed" Panel.ZIndex="10">
+            <Border Background="#F21A1A1A"
+                    BorderBrush="#55FFFFFF"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="24">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Stretch">
+                    <TextBlock Text="ALARM"
+                               Foreground="#00C896"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               HorizontalAlignment="Center"
+                               Margin="0,0,0,14"/>
+                    <TextBlock x:Name="AlarmTaskText"
+                               Foreground="White"
+                               FontSize="25"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Stretch"/>
+                    <TextBlock x:Name="AlarmDetailText"
+                               Foreground="#D0FFFFFF"
+                               FontSize="14"
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               HorizontalAlignment="Stretch"
+                               Margin="0,12,0,22"/>
+                    <Button Content="Dismiss"
+                            Width="88"
+                            Height="34"
+                            HorizontalAlignment="Center"
+                            Click="DismissAlarm_Click"
+                            Style="{StaticResource ProfessionalButtonStyle}"
+                            WindowChrome.IsHitTestVisibleInChrome="True"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
