@@ -262,20 +262,21 @@
     </Style>
 
     <Style x:Key="TaskCheckBoxStyle" TargetType="CheckBox">
-        <Setter Property="Width" Value="20"/>
-        <Setter Property="Height" Value="20"/>
+        <Setter Property="Width" Value="28"/>
+        <Setter Property="Height" Value="28"/>
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="CheckBox">
                     <Grid Background="{TemplateBinding Background}">
-                        <TextBlock x:Name="CheckOutline"
-                                   Text="&#x25CB;"
-                                   Foreground="#B8FFFFFF"
-                                   FontSize="18"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center"
-                                   Visibility="Collapsed"/>
+                        <Border x:Name="CheckHoverTarget"
+                                Width="26"
+                                Height="26"
+                                Background="#20FFFFFF"
+                                BorderBrush="#70FFFFFF"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Visibility="Collapsed"/>
                         <TextBlock x:Name="CheckGlyph"
                                    Text="&#x2713;"
                                    Foreground="#00C896"
@@ -287,11 +288,10 @@
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="CheckOutline" Property="Visibility" Value="Collapsed"/>
                             <Setter TargetName="CheckGlyph" Property="Visibility" Value="Visible"/>
                         </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="CheckOutline" Property="Visibility" Value="Visible"/>
+                            <Setter TargetName="CheckHoverTarget" Property="Visibility" Value="Visible"/>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.5"/>
