@@ -1,16 +1,13 @@
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Data;
 using System;
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
@@ -19,23 +16,21 @@ namespace DesktopTodoWidget
 {
     public partial class MainWindow : Window
     {
-        private ObservableCollection<TaskItem> Tasks = new();
-        private string SavePath = Path.Combine(
+        private readonly TaskManager _taskManager = new(Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "DesktopTodoWidget",
-            "tasks.json");
-        private string SettingsPath = Path.Combine(
+            "tasks.json"));
+        private readonly string SettingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "DesktopTodoWidget",
             "settings.json");
         private bool _isLocked = false;
         private bool _keepBackgroundVisible;
-        private TaskListMode _taskListMode = TaskListMode.Daily;
-        private string? _selectedCustomTaskGroup;
         private bool _isUpdatingTaskSetSelector;
-        private readonly ObservableCollection<string> _customTaskGroups = new();
+        private ObservableCollection<string> _customTaskGroups => _taskManager.CustomTaskGroups;
+        private TaskListMode _taskListMode => _taskManager.SelectedMode;
+        private string? _selectedCustomTaskGroup => _taskManager.SelectedCustomGroup;
         private bool _isWidgetHovered;
-        private ICollectionView? _taskView;
         private System.Windows.Threading.DispatcherTimer? _reminderTimer;
         private System.Windows.Threading.DispatcherTimer? _settingsSaveTimer;
         private readonly Queue<(string Task, string Detail, string Group)> _pendingAlarms = new();
@@ -72,7 +67,7 @@ namespace DesktopTodoWidget
 
                 this.StateChanged += MainWindow_StateChanged;
 
-                TaskList.ItemsSource = Tasks;
+                TaskList.ItemsSource = _taskManager.TaskView;
                 LoadTasks();
                 StartReminderTimer();
                 LogDiagnostic("MainWindow Constructor Finished");
@@ -413,33 +408,12 @@ namespace DesktopTodoWidget
                 return;
             }
 
-            _selectedCustomTaskGroup = null;
-            switch (selection)
+            if (!_taskManager.SelectTaskSet(selection))
             {
-                case "Daily":
-                    _taskListMode = TaskListMode.Daily;
-                    break;
-                case "Inactive":
-                    _taskListMode = TaskListMode.Inactive;
-                    break;
-                case "Trash":
-                    _taskListMode = TaskListMode.Trash;
-                    break;
-                default:
-                    if (!selection.StartsWith("Group:", StringComparison.Ordinal))
-                    {
-                        return;
-                    }
-                    _taskListMode = TaskListMode.Custom;
-                    _selectedCustomTaskGroup = selection["Group:".Length..];
-                    break;
+                return;
             }
 
-            if (_taskView != null)
-            {
-                _taskView.Refresh();
-                UpdateTaskListMaxHeight();
-            }
+            UpdateTaskListMaxHeight();
             UpdateDeleteTaskGroupButton();
         }
 
@@ -485,14 +459,15 @@ namespace DesktopTodoWidget
                     return;
                 }
 
-                if (new[] { "Daily", "Inactive", "Trash" }.Contains(name, StringComparer.OrdinalIgnoreCase) ||
-                    _customTaskGroups.Contains(name, StringComparer.OrdinalIgnoreCase))
+                if (!_taskManager.TryAddCustomGroup(name))
                 {
-                    MessageBox.Show(dialog, "That group name is already in use.", "Duplicate group name", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    string message = string.IsNullOrWhiteSpace(name)
+                        ? "Enter a group name."
+                        : "That group name is already in use.";
+                    MessageBox.Show(dialog, message, "Invalid group name", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                _customTaskGroups.Add(name);
                 RefreshTaskSetSelector(name);
                 SaveWidgetSettings();
                 dialog.DialogResult = true;
@@ -542,12 +517,6 @@ namespace DesktopTodoWidget
                 .FirstOrDefault(item => Equals(item.Tag, selection))
                 ?? TaskSetSelector.Items[0];
             _isUpdatingTaskSetSelector = false;
-            if (selectedGroup != null)
-            {
-                _taskListMode = TaskListMode.Custom;
-                _selectedCustomTaskGroup = selectedGroup;
-                _taskView?.Refresh();
-            }
 
             UpdateDeleteTaskGroupButton();
         }
@@ -566,7 +535,7 @@ namespace DesktopTodoWidget
                 return;
             }
 
-            if (Tasks.Any(task => string.Equals(task.GroupName, groupName, StringComparison.OrdinalIgnoreCase)))
+            if (_taskManager.CustomGroupHasTasks(groupName))
             {
                 MessageBox.Show(
                     this,
@@ -588,53 +557,15 @@ namespace DesktopTodoWidget
                 return;
             }
 
-            _customTaskGroups.Remove(groupName);
-            _taskListMode = TaskListMode.Daily;
-            _selectedCustomTaskGroup = null;
+            _taskManager.RemoveEmptyCustomGroup(groupName);
             RefreshTaskSetSelector();
-            _taskView?.Refresh();
             SaveWidgetSettings();
         }
 
         private void SelectTaskGroup(string groupName)
         {
-            if (string.Equals(groupName, "Daily", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(groupName, "Inactive", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(groupName, "Trash", StringComparison.OrdinalIgnoreCase))
-            {
-                _taskListMode = string.Equals(groupName, "Inactive", StringComparison.OrdinalIgnoreCase)
-                    ? TaskListMode.Inactive
-                    : string.Equals(groupName, "Trash", StringComparison.OrdinalIgnoreCase)
-                        ? TaskListMode.Trash
-                        : TaskListMode.Daily;
-                _selectedCustomTaskGroup = null;
-                RefreshTaskSetSelector();
-                _taskView?.Refresh();
-                return;
-            }
-
-            if (_customTaskGroups.Contains(groupName, StringComparer.OrdinalIgnoreCase))
-            {
-                RefreshTaskSetSelector(groupName);
-                return;
-            }
-
-            _taskListMode = TaskListMode.Daily;
-            _selectedCustomTaskGroup = null;
+            _taskManager.SelectTaskGroup(groupName);
             RefreshTaskSetSelector();
-            _taskView?.Refresh();
-        }
-
-        private static string GetTaskSetName(TaskItem item)
-        {
-            if (item.DeletedAt != null)
-            {
-                return "Trash";
-            }
-
-            return !item.IsActive && !string.IsNullOrWhiteSpace(item.Recurrence)
-                ? "Inactive"
-                : item.GroupName;
         }
 
         private void Reminder_Click(object sender, RoutedEventArgs e)
@@ -644,8 +575,6 @@ namespace DesktopTodoWidget
                 return;
             }
 
-            DateTime? originalDueAt = item.DueAt;
-            int? originalReminderMinutesBefore = item.ReminderMinutesBefore;
             var datePicker = new DatePicker
             {
                 SelectedDate = item.DueAt?.Date ?? DateTime.Today,
@@ -715,24 +644,17 @@ namespace DesktopTodoWidget
                     return;
                 }
 
-                item.DueAt = selectedDate.Date.Add(selectedTime);
                 var selectedReminder = reminderChoice.SelectedValue?.ToString() ?? "none";
-                item.ReminderMinutesBefore = selectedReminder == "none"
+                int? minutesBefore = selectedReminder == "none"
                     ? null
                     : int.Parse(selectedReminder, CultureInfo.InvariantCulture);
                 var selectedRecurrence = recurrenceChoice.SelectedValue?.ToString() ?? "none";
-                item.Recurrence = selectedRecurrence == "none" ? null : selectedRecurrence;
-                if (selectedRecurrence == "none" && !item.IsActive)
-                {
-                    item.IsActive = true;
-                    item.IsChecked = false;
-                }
-                if (item.DueAt != originalDueAt || item.ReminderMinutesBefore != originalReminderMinutesBefore)
-                {
-                    item.ReminderTriggered = false;
-                }
+                _taskManager.SetReminder(
+                    item,
+                    selectedDate.Date.Add(selectedTime),
+                    minutesBefore,
+                    selectedRecurrence == "none" ? null : selectedRecurrence);
                 SaveTasks();
-                _taskView?.Refresh();
                 dialog.DialogResult = true;
             };
             actions.Children.Add(cancelButton);
@@ -746,7 +668,7 @@ namespace DesktopTodoWidget
         {
             if ((sender as FrameworkElement)?.DataContext is TaskItem item)
             {
-                ShowAlarmOverlay(item.Text, "Test alarm", GetTaskSetName(item));
+                ShowAlarmOverlay(item.Text, "Test alarm", _taskManager.GetTaskSetName(item));
             }
         }
 
@@ -811,61 +733,15 @@ namespace DesktopTodoWidget
 
         private void ReminderTimer_Tick(object? sender, EventArgs e)
         {
-            DateTime now = DateTime.Now;
-            DateTime recurringTaskStartTime = now.Date.AddHours(2);
-            bool taskListChanged = false;
-            var tasksToRemove = new List<TaskItem>();
-            foreach (var item in Tasks.ToList())
-            {
-                if (item.DeletedAt is DateTime deletedAt && now - deletedAt >= TimeSpan.FromDays(1))
-                {
-                    tasksToRemove.Add(item);
-                    continue;
-                }
-
-                if (!item.IsActive && !string.IsNullOrWhiteSpace(item.Recurrence) &&
-                    item.DeletedAt == null &&
-                    item.DueAt is DateTime nextOccurrence &&
-                    nextOccurrence.Date <= now.Date &&
-                    now >= recurringTaskStartTime)
-                {
-                    item.IsActive = true;
-                    item.IsChecked = false;
-                    if (nextOccurrence <= now)
-                    {
-                        item.ReminderTriggered = true;
-                    }
-                    taskListChanged = true;
-                }
-
-                if (item.DeletedAt != null ||
-                    (item.IsChecked && (item.IsActive || string.IsNullOrWhiteSpace(item.Recurrence))) ||
-                    item.ReminderTriggered || item.DueAt is not DateTime dueAt ||
-                    item.ReminderMinutesBefore is not int minutesBefore ||
-                    now < dueAt.AddMinutes(-minutesBefore))
-                {
-                    continue;
-                }
-
-                item.ReminderTriggered = true;
-                SaveTasks();
-                DateTime alarmAt = dueAt.AddMinutes(-minutesBefore);
-                string alarmDetail = minutesBefore == 0
-                    ? $"Alarm at {alarmAt:MMM d, HH:mm}"
-                    : $"Alarm {minutesBefore} minutes before at {alarmAt:MMM d, HH:mm}";
-                ShowAlarmOverlay(item.Text, alarmDetail, GetTaskSetName(item));
-            }
-
-            foreach (var item in tasksToRemove)
-            {
-                Tasks.Remove(item);
-                taskListChanged = true;
-            }
-
-            if (taskListChanged)
+            TaskProcessingResult result = _taskManager.ProcessScheduledTasks(DateTime.Now);
+            if (result.Changed)
             {
                 SaveTasks();
-                _taskView?.Refresh();
+            }
+
+            foreach (TaskAlarm alarm in result.Alarms)
+            {
+                ShowAlarmOverlay(alarm.Task, alarm.Detail, alarm.Group);
             }
         }
 
@@ -875,15 +751,8 @@ namespace DesktopTodoWidget
             {
                 if (!string.IsNullOrWhiteSpace(TaskInput.Text))
                 {
-                    Tasks.Insert(0, new TaskItem
-                    {
-                        Text = TaskInput.Text,
-                        GroupName = _taskListMode == TaskListMode.Custom
-                            ? _selectedCustomTaskGroup ?? "Daily"
-                            : "Daily"
-                    });
+                    _taskManager.AddTask(TaskInput.Text);
                     SaveTasks();
-                    _taskView?.Refresh();
                 }
                 TaskInput.Text = "";
                 TaskInput.Visibility = Visibility.Collapsed;
@@ -947,81 +816,17 @@ namespace DesktopTodoWidget
         {
             if ((sender as CheckBox)?.DataContext is TaskItem item)
             {
-                if (item.IsChecked && item.IsActive && !string.IsNullOrWhiteSpace(item.Recurrence) && item.DueAt is DateTime scheduledAt)
-                {
-                    item.DueAt = GetNextOccurrence(scheduledAt, item.Recurrence);
-                    item.IsActive = false;
-                    item.ReminderTriggered = false;
-                    item.CompletedAt = null;
-                    _taskView?.Refresh();
-                }
-                else if (!item.IsChecked && !item.IsActive)
-                {
-                    item.IsActive = true;
-                    item.ReminderTriggered = false;
-                    item.CompletedAt = null;
-                    _taskView?.Refresh();
-                }
-                else
-                {
-                    item.CompletedAt = item.IsChecked ? DateTime.Now : null;
-                }
+                _taskManager.SetTaskChecked(item, DateTime.Now);
             }
 
             SaveTasks();
-        }
-
-        private static DateTime GetNextOccurrence(DateTime scheduledAt, string recurrence)
-        {
-            DateTime nextOccurrence = AdvanceOccurrence(scheduledAt, recurrence);
-            while (nextOccurrence <= DateTime.Now)
-            {
-                nextOccurrence = AdvanceOccurrence(nextOccurrence, recurrence);
-            }
-            return nextOccurrence;
-        }
-
-        private static DateTime AdvanceOccurrence(DateTime occurrence, string recurrence)
-        {
-            return recurrence switch
-            {
-                "Biweekly" => occurrence.AddDays(14),
-                "Weekly" => occurrence.AddDays(7),
-                "Monthly" => occurrence.AddMonths(1),
-                "Yearly" => occurrence.AddYears(1),
-                _ => occurrence.AddDays(1)
-            };
         }
 
         private void Delete_Click(object sender, RoutedEventArgs e)
         {
             if ((sender as Button)?.DataContext is TaskItem item)
             {
-                if (_taskListMode == TaskListMode.Trash)
-                {
-                    Tasks.Remove(item);
-                }
-                else if (_taskListMode == TaskListMode.Inactive)
-                {
-                    item.IsActive = false;
-                    item.DeletedAt = DateTime.Now;
-                }
-                else if (!string.IsNullOrWhiteSpace(item.Recurrence) && item.DueAt is DateTime scheduledAt)
-                {
-                    item.DueAt = GetNextOccurrence(scheduledAt, item.Recurrence);
-                    item.IsActive = false;
-                    item.IsChecked = false;
-                    item.CompletedAt = null;
-                    item.ReminderTriggered = false;
-                }
-                else
-                {
-                    item.IsActive = false;
-                    item.IsChecked = false;
-                    item.CompletedAt = null;
-                    item.DeletedAt = DateTime.Now;
-                }
-                _taskView?.Refresh();
+                _taskManager.DeleteTask(item, DateTime.Now);
                 SaveTasks();
             }
         }
@@ -1029,20 +834,11 @@ namespace DesktopTodoWidget
         private void RestoreTask_Click(object sender, RoutedEventArgs e)
         {
             if ((sender as FrameworkElement)?.DataContext is not TaskItem item ||
-                item.DeletedAt == null)
+                !_taskManager.RestoreTask(item))
             {
                 return;
             }
 
-            item.DeletedAt = null;
-            if (string.IsNullOrWhiteSpace(item.Recurrence))
-            {
-                item.IsActive = true;
-                item.IsChecked = false;
-                item.CompletedAt = null;
-            }
-            item.ReminderTriggered = false;
-            _taskView?.Refresh();
             SaveTasks();
         }
 
@@ -1085,11 +881,10 @@ namespace DesktopTodoWidget
                 var target = ((FrameworkElement)e.OriginalSource).DataContext as TaskItem;
                 if (target == null || dropped == null) return;
 
-                int oldIndex = Tasks.IndexOf(dropped);
-                int newIndex = Tasks.IndexOf(target);
-
-                Tasks.Move(oldIndex, newIndex);
-                SaveTasks();
+                if (_taskManager.MoveTask(dropped, target))
+                {
+                    SaveTasks();
+                }
             }
         }
 
@@ -1097,65 +892,21 @@ namespace DesktopTodoWidget
         {
             try
             {
-                string fullPath = SavePath;
-                LogDiagnostic($"Loading tasks from: {fullPath}");
-
-                if (File.Exists(fullPath))
-                {
-                    string json = File.ReadAllText(fullPath);
-                    if (!string.IsNullOrWhiteSpace(json))
-                    {
-                        var data = JsonSerializer.Deserialize<ObservableCollection<TaskItem>>(json);
-                        if (data != null)
-                        {
-                            Tasks = data;
-                            foreach (string group in Tasks
-                                         .Select(task => task.GroupName)
-                                         .Where(group => !string.IsNullOrWhiteSpace(group) &&
-                                                         !string.Equals(group, "Daily", StringComparison.OrdinalIgnoreCase) &&
-                                                         !new[] { "Inactive", "Trash" }.Contains(group, StringComparer.OrdinalIgnoreCase))
-                                         .Distinct(StringComparer.OrdinalIgnoreCase))
-                            {
-                                if (!_customTaskGroups.Contains(group, StringComparer.OrdinalIgnoreCase))
-                                {
-                                    _customTaskGroups.Add(group);
-                                }
-                            }
-                        }
-                    }
-                }
+                _taskManager.Load(_customTaskGroups.ToArray());
             }
             catch (Exception ex)
             {
                 LogDiagnostic($"LoadTasks Error: {ex.Message}");
-                Tasks = new();
             }
-            finally
-            {
-                RefreshTaskSetSelector();
-                _taskView = CollectionViewSource.GetDefaultView(Tasks);
-                _taskView.Filter = task => task is TaskItem item && _taskListMode switch
-                {
-                    TaskListMode.Daily => item.IsActive && item.DeletedAt == null &&
-                                          string.Equals(item.GroupName, "Daily", StringComparison.OrdinalIgnoreCase),
-                    TaskListMode.Inactive => !item.IsActive && item.DeletedAt == null &&
-                                             !string.IsNullOrWhiteSpace(item.Recurrence),
-                    TaskListMode.Trash => item.DeletedAt != null,
-                    TaskListMode.Custom => item.IsActive && item.DeletedAt == null &&
-                                           string.Equals(item.GroupName, _selectedCustomTaskGroup, StringComparison.OrdinalIgnoreCase),
-                    _ => false
-                };
-                TaskList.ItemsSource = _taskView;
-            }
+            RefreshTaskSetSelector();
+            RefreshTaskSetSelector();
         }
 
         private void SaveTasks()
         {
             try
             {
-                string fullPath = SavePath;
-                Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-                File.WriteAllText(fullPath, JsonSerializer.Serialize(Tasks));
+                _taskManager.Save();
             }
             catch (Exception ex)
             {
@@ -1178,16 +929,7 @@ namespace DesktopTodoWidget
                     return;
                 }
 
-                _customTaskGroups.Clear();
-                foreach (string group in settings.CustomTaskGroups ?? new List<string>())
-                {
-                    if (!string.IsNullOrWhiteSpace(group) &&
-                        !new[] { "Daily", "Inactive", "Trash" }.Contains(group, StringComparer.OrdinalIgnoreCase) &&
-                        !_customTaskGroups.Contains(group, StringComparer.OrdinalIgnoreCase))
-                    {
-                        _customTaskGroups.Add(group);
-                    }
-                }
+                _taskManager.ResetCustomTaskGroups(settings.CustomTaskGroups ?? new List<string>());
 
                 LockToggle.IsChecked = settings.IsLocked;
                 PinToggle.IsChecked = settings.IsPinned;
@@ -1341,80 +1083,5 @@ namespace DesktopTodoWidget
             LogDiagnostic("Safety Timer Started (5s interval)");
         }
 
-        private enum TaskListMode
-        {
-            Daily,
-            Custom,
-            Inactive,
-            Trash
-        }
-
-    }
-
-    internal sealed class WidgetSettings
-    {
-        public double Left { get; set; }
-        public double Top { get; set; }
-        public double Width { get; set; }
-        public double Height { get; set; }
-        public bool IsLocked { get; set; }
-        public bool IsPinned { get; set; }
-        public bool KeepBackgroundVisible { get; set; }
-        public List<string> CustomTaskGroups { get; set; } = new();
-    }
-
-    public class TaskItem
-    {
-        public bool IsChecked { get; set; }
-        public string Text { get; set; } = "";
-        public DateTime? DueAt { get; set; }
-        public int? ReminderMinutesBefore { get; set; }
-        public bool ReminderTriggered { get; set; }
-        public string? Recurrence { get; set; }
-        public bool IsActive { get; set; } = true;
-        public bool IsUrgent { get; set; }
-        public DateTime? CompletedAt { get; set; }
-        public DateTime? DeletedAt { get; set; }
-        public string GroupName { get; set; } = "Daily";
-
-        [JsonIgnore]
-        public bool HasReminder => DueAt != null && ReminderMinutesBefore != null;
-
-        [JsonIgnore]
-        public DateTime? DiscardAt => DeletedAt?.AddDays(1);
-
-        [JsonIgnore]
-        public bool HasPendingRemoval => DeletedAt != null;
-
-        [JsonIgnore]
-        public string DiscardToolTip => DiscardAt is DateTime discardAt
-            ? $"Will be discarded on {discardAt:MMM d, yyyy 'at' HH:mm}"
-            : string.Empty;
-
-        [JsonIgnore]
-        public string ReminderToolTip
-        {
-            get
-            {
-                if (DueAt is not DateTime dueAt || ReminderMinutesBefore is not int minutesBefore)
-                {
-                    return "No alarm set";
-                }
-
-                DateTime alarmAt = dueAt.AddMinutes(-minutesBefore);
-                return minutesBefore == 0
-                    ? $"Alarm at {alarmAt:MMM d, HH:mm}"
-                    : $"Alarm {minutesBefore} minutes before at {alarmAt:MMM d, HH:mm}";
-            }
-        }
-
-        [JsonIgnore]
-        public string DeleteToolTip => DeletedAt != null
-            ? "Delete permanently"
-            : !IsActive
-                ? "Move to Trash; permanently remove after one day"
-            : !string.IsNullOrWhiteSpace(Recurrence)
-                ? "Skip this occurrence; task returns at its next occurrence"
-                : "Move to Trash; permanently remove after one day";
     }
 }
