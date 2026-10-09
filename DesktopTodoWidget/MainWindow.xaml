@@ -72,6 +72,7 @@
                                       Checked="PinToggle_Click"
                                       Unchecked="PinToggle_Click"
                                       ToolTip="Keep on top"
+                                      ToolTipService.InitialShowDelay="150"
                                       Style="{StaticResource PinButtonStyle}">
                             <ToggleButton.Content>
                                 <TextBlock Text="&#xE718;"
@@ -338,6 +339,7 @@
                                                 Content="◷"
                                                 Click="Reminder_Click"
                                                 ToolTip="{Binding ReminderToolTip}"
+                                                ToolTipService.InitialShowDelay="150"
                                                 Style="{StaticResource AlarmIndicatorStyle}"
                                                 WindowChrome.IsHitTestVisibleInChrome="True"/>
 
@@ -349,7 +351,8 @@
                                                    FontSize="15"
                                                    VerticalAlignment="Center"
                                                    Margin="4,0"
-                                                   ToolTip="{Binding DiscardToolTip}">
+                                                   ToolTip="{Binding DiscardToolTip}"
+                                                   ToolTipService.InitialShowDelay="150">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Visibility" Value="Visible"/>
@@ -369,6 +372,7 @@
                                             Grid.RowSpan="2"
                                             Click="Delete_Click"
                                             ToolTip="{Binding DeleteToolTip}"
+                                            ToolTipService.InitialShowDelay="150"
                                             Style="{StaticResource DeleteButtonStyle}"
                                             WindowChrome.IsHitTestVisibleInChrome="True"/>
                                 </Grid>
@@ -416,6 +420,7 @@
                             Visibility="Collapsed"
                             Click="TimerButton_Click"
                             ToolTip="Start a timer"
+                            ToolTipService.InitialShowDelay="150"
                             Style="{StaticResource TimerButtonStyle}"
                             WindowChrome.IsHitTestVisibleInChrome="True">
                         <Path Width="24"
@@ -437,6 +442,7 @@
                             Visibility="Collapsed"
                             Click="AddTask_Click"
                             ToolTip="Add task"
+                            ToolTipService.InitialShowDelay="150"
                             Style="{StaticResource AddButtonStyle}"
                             WindowChrome.IsHitTestVisibleInChrome="True">
                         <Path Width="24"
@@ -476,7 +482,8 @@
                             <TextBox x:Name="TimerMinutesInput"
                                      Style="{StaticResource TimerMinutesInputStyle}"
                                      MaxLength="7"
-                                     ToolTip="Duration in minutes"/>
+                                     ToolTip="Duration in minutes"
+                                     ToolTipService.InitialShowDelay="150"/>
                             <TextBlock Text="Custom duration in minutes"
                                        Style="{StaticResource TimerPopupHintStyle}"
                                        Margin="2,4,0,10"/>
@@ -511,6 +518,7 @@
                             Visibility="Collapsed"
                             Click="DeleteTaskGroup_Click"
                             ToolTip="Delete empty group"
+                            ToolTipService.InitialShowDelay="150"
                             Style="{StaticResource DeleteButtonStyle}"
                             WindowChrome.IsHitTestVisibleInChrome="True"/>
                     <ComboBox x:Name="TaskSetSelector"
@@ -526,6 +534,7 @@
                             Height="36"
                             Click="AddTaskGroup_Click"
                             ToolTip="Add task group"
+                            ToolTipService.InitialShowDelay="150"
                             Style="{StaticResource AddButtonStyle}"
                             WindowChrome.IsHitTestVisibleInChrome="True"/>
                 </Grid>

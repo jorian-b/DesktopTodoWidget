@@ -56,6 +56,7 @@
                         Style="{StaticResource ReminderDialogCloseButtonStyle}"
                         Click="CloseButton_Click"
                         ToolTip="Close"
+                        ToolTipService.InitialShowDelay="150"
                         WindowChrome.IsHitTestVisibleInChrome="True"/>
             </Grid>
 
@@ -116,7 +117,8 @@
                                  MaxLength="5"
                                  VerticalContentAlignment="Center"
                                  Style="{StaticResource ReminderDialogTimeInputStyle}"
-                                 ToolTip="24-hour time, for example 09:30"/>
+                                 ToolTip="24-hour time, for example 09:30"
+                                 ToolTipService.InitialShowDelay="150"/>
                     </Grid>
 
                     <TextBlock Text="ALERT"
