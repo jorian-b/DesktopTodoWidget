@@ -7,6 +7,7 @@ set "PUBLISH_DIR=%~dp0release"
 dotnet publish "%PROJECT%" --configuration Release "-p:PublishDir=%PUBLISH_DIR%"
 if errorlevel 1 (
     echo Release publish failed.
+    pause
     exit /b 1
 )
 

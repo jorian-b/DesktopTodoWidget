@@ -1,9 +1,15 @@
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 
 namespace DesktopTodoWidget
 {
-    public class TaskItem
+    public class TaskItem : INotifyPropertyChanged
     {
+        private string? _timerDisplay;
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+
         public bool IsChecked { get; set; }
         public string Text { get; set; } = "";
         public DateTime? DueAt { get; set; }
@@ -11,6 +17,8 @@ namespace DesktopTodoWidget
         public bool ReminderTriggered { get; set; }
         public string? Recurrence { get; set; }
         public List<DayOfWeek> RecurrenceDays { get; set; } = new();
+        public bool IsTimer { get; set; }
+        public Guid? TimerId { get; set; }
         public bool IsActive { get; set; } = true;
         public bool IsUrgent { get; set; }
         public DateTime? CompletedAt { get; set; }
@@ -19,6 +27,21 @@ namespace DesktopTodoWidget
 
         [JsonIgnore]
         public bool HasReminder => DueAt != null && ReminderMinutesBefore != null;
+
+        [JsonIgnore]
+        public string TimerDisplay => _timerDisplay ?? FormatTimerDisplay(DateTime.Now);
+
+        public void RefreshTimerDisplay(DateTime now)
+        {
+            string display = FormatTimerDisplay(now);
+            if (_timerDisplay == display)
+            {
+                return;
+            }
+
+            _timerDisplay = display;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TimerDisplay)));
+        }
 
         [JsonIgnore]
         public DateTime? DiscardAt => DeletedAt?.AddDays(1);
@@ -56,5 +79,21 @@ namespace DesktopTodoWidget
                 : !string.IsNullOrWhiteSpace(Recurrence)
                     ? "Skip this occurrence; task returns at its next occurrence"
                     : "Move to Trash; permanently remove after one day";
+
+        private string FormatTimerDisplay(DateTime now)
+        {
+            if (DueAt is not DateTime dueAt)
+            {
+                return "00:00:00";
+            }
+
+            TimeSpan remaining = dueAt - now;
+            if (remaining <= TimeSpan.Zero)
+            {
+                return "00:00:00";
+            }
+
+            return $"{(int)remaining.TotalHours:00}:{remaining.Minutes:00}:{remaining.Seconds:00}";
+        }
     }
 }

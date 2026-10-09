@@ -249,6 +249,152 @@
         </Setter>
     </Style>
 
+    <Style x:Key="TaskAwareCheckBoxStyle"
+           TargetType="CheckBox"
+           BasedOn="{StaticResource TaskCheckBoxStyle}">
+        <Style.Triggers>
+            <DataTrigger Binding="{Binding IsTimer}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="TimerCountdownTextStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="#FFFFFF"/>
+        <Setter Property="FontSize" Value="22"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="FontFamily" Value="Consolas"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+        <Setter Property="Margin" Value="2,0"/>
+    </Style>
+
+    <Style x:Key="TimerButtonStyle"
+           TargetType="Button"
+           BasedOn="{StaticResource AddButtonStyle}">
+        <Setter Property="Foreground" Value="#00C896"/>
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="ToolTip" Value="Start a timer"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Foreground" Value="#66E0C0"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="TimerPopupCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="#F21A1A1A"/>
+        <Setter Property="BorderBrush" Value="#55FFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius" Value="10"/>
+        <Setter Property="Padding" Value="14"/>
+        <Setter Property="Width" Value="240"/>
+        <Setter Property="Margin" Value="0,0,0,7"/>
+        <Setter Property="Effect">
+            <Setter.Value>
+                <DropShadowEffect BlurRadius="14" ShadowDepth="3" Opacity="0.3"/>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="TimerPopupTitleStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="#00C896"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <Style x:Key="TimerPopupHintStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="#B8FFFFFF"/>
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+
+    <Style x:Key="TimerPopupErrorStyle" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="#FFFF7777"/>
+        <Setter Property="FontSize" Value="10"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Margin" Value="2,0,2,8"/>
+    </Style>
+
+    <Style x:Key="TimerPresetButtonStyle" TargetType="Button">
+        <Setter Property="Height" Value="30"/>
+        <Setter Property="Margin" Value="2"/>
+        <Setter Property="Background" Value="#1FFFFFFF"/>
+        <Setter Property="Foreground" Value="#E8FFFFFF"/>
+        <Setter Property="BorderBrush" Value="#38FFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="11"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="PresetBorder"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="PresetBorder" Property="Background" Value="#3345D6B0"/>
+                            <Setter TargetName="PresetBorder" Property="BorderBrush" Value="#8800C896"/>
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="PresetBorder" Property="Opacity" Value="0.7"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="TimerMinutesInputStyle" TargetType="TextBox">
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Padding" Value="8,4"/>
+        <Setter Property="Background" Value="#1FFFFFFF"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="CaretBrush" Value="White"/>
+        <Setter Property="BorderBrush" Value="#55FFFFFF"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+    </Style>
+
+    <Style x:Key="TimerStartButtonStyle" TargetType="Button">
+        <Setter Property="Height" Value="32"/>
+        <Setter Property="Background" Value="#00A87E"/>
+        <Setter Property="Foreground" Value="White"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="StartBorder"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="6">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="StartBorder" Property="Background" Value="#00C896"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="TimerCancelButtonStyle" TargetType="Button">
+        <Setter Property="Height" Value="26"/>
+        <Setter Property="Margin" Value="0,4,0,0"/>
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Foreground" Value="#A8FFFFFF"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontSize" Value="10"/>
+    </Style>
+
     <Style x:Key="AlarmIndicatorStyle" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="BorderThickness" Value="0"/>
@@ -273,6 +419,9 @@
             </DataTrigger>
             <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=Border}}" Value="True">
                 <Setter Property="Visibility" Value="Visible"/>
+            </DataTrigger>
+            <DataTrigger Binding="{Binding IsTimer}" Value="True">
+                <Setter Property="Visibility" Value="Collapsed"/>
             </DataTrigger>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Foreground" Value="#66E0C0"/>

@@ -52,7 +52,8 @@ namespace DesktopTodoWidget
                     SelectTaskGroup,
                     AlarmOverlay,
                     AlarmTaskText,
-                    AlarmDetailText);
+                    AlarmDetailText,
+                    RemoveTimerAfterDismiss);
                 LogDiagnostic("InitializeComponent Done");
 
                 _settingsSaveTimer = new System.Windows.Threading.DispatcherTimer
@@ -335,13 +336,14 @@ namespace DesktopTodoWidget
             PinToggle.Visibility = Visibility.Visible;
             HoverVisibilityToggle.Visibility = Visibility.Visible;
             AddButton.Visibility = Visibility.Visible;
+            UpdateTimerButtonVisibility();
             TaskSetBar.Visibility = Visibility.Visible;
             UpdateTaskListMaxHeight();
         }
 
         private void MainRoot_MouseLeave(object sender, MouseEventArgs e)
         {
-            if (TaskSetSelector.IsDropDownOpen)
+            if (TaskSetSelector.IsDropDownOpen || TimerPopup.IsOpen)
             {
                 return;
             }
@@ -360,6 +362,7 @@ namespace DesktopTodoWidget
         private void HideHoverControls()
         {
             _isWidgetHovered = false;
+            TimerPopup.IsOpen = false;
             BackgroundSurface.Opacity = _keepBackgroundVisible ? 1 : 0;
             MainFrame.BorderBrush = Brushes.Transparent;
             TaskCardVisuals.Refresh(TaskList, false);
@@ -367,6 +370,7 @@ namespace DesktopTodoWidget
             PinToggle.Visibility = Visibility.Collapsed;
             HoverVisibilityToggle.Visibility = Visibility.Collapsed;
             AddButton.Visibility = Visibility.Collapsed;
+            TimerButton.Visibility = Visibility.Collapsed;
             TaskSetBar.Visibility = Visibility.Collapsed;
             UpdateTaskListMaxHeight();
         }
@@ -379,10 +383,19 @@ namespace DesktopTodoWidget
             }
         }
 
+        private void TaskCard_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+        {
+            if (sender is Border { DataContext: TaskItem { IsTimer: true } })
+            {
+                e.Handled = true;
+            }
+        }
+
         private void TaskSetSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_taskGroupSelector.HandleSelectionChanged())
             {
+                UpdateTimerButtonVisibility();
                 UpdateTaskListMaxHeight();
             }
         }
@@ -396,6 +409,77 @@ namespace DesktopTodoWidget
         private void SelectTaskGroup(string groupName)
         {
             _taskGroupSelector.SelectTaskGroup(groupName);
+            UpdateTimerButtonVisibility();
+        }
+
+        private void UpdateTimerButtonVisibility() =>
+            TimerButton.Visibility = _isWidgetHovered &&
+                                     _taskManager.SelectedMode == TaskListMode.Daily
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+        private void TimerButton_Click(object sender, RoutedEventArgs e)
+        {
+            TimerValidationText.Visibility = Visibility.Collapsed;
+            TimerMinutesInput.Text = string.Empty;
+            TimerPopup.IsOpen = !TimerPopup.IsOpen;
+            if (TimerPopup.IsOpen)
+            {
+                TimerMinutesInput.Focus();
+            }
+        }
+
+        private void TimerPreset_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.Tag is string minutes)
+            {
+                TimerMinutesInput.Text = minutes;
+                TimerValidationText.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void StartTimer_Click(object sender, RoutedEventArgs e)
+        {
+            if (!int.TryParse(TimerMinutesInput.Text, out int minutes) || minutes <= 0)
+            {
+                TimerValidationText.Text = "Enter a duration greater than zero minutes.";
+                TimerValidationText.Visibility = Visibility.Visible;
+                return;
+            }
+
+            try
+            {
+                _taskManager.AddTimer(TimeSpan.FromMinutes(minutes), DateTime.Now);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+                TimerValidationText.Text = "That duration is too long.";
+                TimerValidationText.Visibility = Visibility.Visible;
+                return;
+            }
+
+            SaveTasks();
+            TimerPopup.IsOpen = false;
+            UpdateTaskListMaxHeight();
+        }
+
+        private void CancelTimer_Click(object sender, RoutedEventArgs e) =>
+            TimerPopup.IsOpen = false;
+
+        private void TimerPopup_Closed(object? sender, EventArgs e)
+        {
+            if (!MainRoot.IsMouseOver)
+            {
+                HideHoverControls();
+            }
+        }
+
+        private void RemoveTimerAfterDismiss(Guid timerId)
+        {
+            if (_taskManager.RemoveTimer(timerId))
+            {
+                SaveTasks();
+            }
         }
 
         private void Reminder_Click(object sender, RoutedEventArgs e) =>
@@ -411,7 +495,7 @@ namespace DesktopTodoWidget
         {
             _reminderTimer = new System.Windows.Threading.DispatcherTimer
             {
-                Interval = TimeSpan.FromSeconds(30)
+                Interval = TimeSpan.FromSeconds(1)
             };
             _reminderTimer.Tick += ReminderTimer_Tick;
             _reminderTimer.Start();
@@ -420,7 +504,9 @@ namespace DesktopTodoWidget
 
         private void ReminderTimer_Tick(object? sender, EventArgs e)
         {
-            TaskProcessingResult result = _taskManager.ProcessScheduledTasks(DateTime.Now);
+            DateTime now = DateTime.Now;
+            _taskManager.RefreshTimerDisplays(now);
+            TaskProcessingResult result = _taskManager.ProcessScheduledTasks(now);
             if (result.Changed)
             {
                 SaveTasks();
@@ -428,7 +514,7 @@ namespace DesktopTodoWidget
 
             foreach (TaskAlarm alarm in result.Alarms)
             {
-                _alarmPresenter.Show(alarm.Task, alarm.Detail, alarm.Group);
+                _alarmPresenter.Show(alarm.Task, alarm.Detail, alarm.Group, timerId: alarm.TimerId);
             }
         }
 

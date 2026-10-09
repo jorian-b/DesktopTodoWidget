@@ -49,6 +49,15 @@ namespace DesktopTodoWidget
                             Tasks.Clear();
                             foreach (TaskItem item in loadedTasks)
                             {
+                                if (item.IsTimer &&
+                                    item.IsActive &&
+                                    item.DeletedAt == null &&
+                                    item.DueAt is DateTime timerDueAt &&
+                                    timerDueAt <= DateTime.Now)
+                                {
+                                    item.ReminderTriggered = false;
+                                }
+
                                 Tasks.Add(item);
                                 AddGroupIfValid(item.GroupName);
                             }
@@ -182,8 +191,60 @@ namespace DesktopTodoWidget
             return item;
         }
 
+        public TaskItem AddTimer(TimeSpan duration, DateTime now)
+        {
+            if (duration <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(duration), "Timer duration must be positive.");
+            }
+
+            DateTime dueAt = now.Add(duration);
+            var item = new TaskItem
+            {
+                IsTimer = true,
+                TimerId = Guid.NewGuid(),
+                DueAt = dueAt,
+                GroupName = "Daily"
+            };
+            Tasks.Insert(0, item);
+            TaskView.Refresh();
+            return item;
+        }
+
+        public bool RemoveTimer(Guid timerId)
+        {
+            TaskItem? timer = Tasks.FirstOrDefault(item => item.IsTimer && item.TimerId == timerId);
+            if (timer == null)
+            {
+                return false;
+            }
+
+            Tasks.Remove(timer);
+            TaskView.Refresh();
+            return true;
+        }
+
+        public void RefreshTimerDisplays(DateTime now)
+        {
+            foreach (TaskItem timer in Tasks.Where(item => item.IsTimer && item.IsActive))
+            {
+                timer.RefreshTimerDisplay(now);
+            }
+        }
+
         public bool DeleteTask(TaskItem item, DateTime now)
         {
+            if (item.IsTimer)
+            {
+                bool removed = Tasks.Remove(item);
+                if (removed)
+                {
+                    TaskView.Refresh();
+                }
+
+                return removed;
+            }
+
             if (SelectedMode == TaskListMode.Trash)
             {
                 return Tasks.Remove(item);
@@ -364,6 +425,26 @@ namespace DesktopTodoWidget
                     changed = true;
                 }
 
+                if (item.IsTimer)
+                {
+                    if (item.DeletedAt == null &&
+                        item.IsActive &&
+                        !item.ReminderTriggered &&
+                        item.DueAt is DateTime timerDueAt &&
+                        now >= timerDueAt)
+                    {
+                        item.ReminderTriggered = true;
+                        alarms.Add(new TaskAlarm(
+                            "Timer",
+                            "Timer finished",
+                            GetTaskSetName(item),
+                            item.TimerId));
+                        changed = true;
+                    }
+
+                    continue;
+                }
+
                 if (item.DeletedAt != null ||
                     (item.IsChecked && (item.IsActive || string.IsNullOrWhiteSpace(item.Recurrence))) ||
                     item.ReminderTriggered ||
@@ -474,7 +555,7 @@ namespace DesktopTodoWidget
         Trash
     }
 
-    internal sealed record TaskAlarm(string Task, string Detail, string Group);
+    internal sealed record TaskAlarm(string Task, string Detail, string Group, Guid? TimerId = null);
 
     internal sealed record TaskProcessingResult(IReadOnlyList<TaskAlarm> Alarms, bool Changed);
 }
