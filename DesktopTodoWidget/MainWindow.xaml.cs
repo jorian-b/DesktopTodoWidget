@@ -811,11 +811,13 @@ namespace DesktopTodoWidget
 
         private void ReminderTimer_Tick(object? sender, EventArgs e)
         {
+            DateTime now = DateTime.Now;
+            DateTime recurringTaskStartTime = now.Date.AddHours(2);
             bool taskListChanged = false;
             var tasksToRemove = new List<TaskItem>();
             foreach (var item in Tasks.ToList())
             {
-                if (item.DeletedAt is DateTime deletedAt && DateTime.Now - deletedAt >= TimeSpan.FromDays(1))
+                if (item.DeletedAt is DateTime deletedAt && now - deletedAt >= TimeSpan.FromDays(1))
                 {
                     tasksToRemove.Add(item);
                     continue;
@@ -823,10 +825,16 @@ namespace DesktopTodoWidget
 
                 if (!item.IsActive && !string.IsNullOrWhiteSpace(item.Recurrence) &&
                     item.DeletedAt == null &&
-                    item.DueAt is DateTime nextOccurrence && nextOccurrence <= DateTime.Now)
+                    item.DueAt is DateTime nextOccurrence &&
+                    nextOccurrence.Date <= now.Date &&
+                    now >= recurringTaskStartTime)
                 {
                     item.IsActive = true;
                     item.IsChecked = false;
+                    if (nextOccurrence <= now)
+                    {
+                        item.ReminderTriggered = true;
+                    }
                     taskListChanged = true;
                 }
 
@@ -834,7 +842,7 @@ namespace DesktopTodoWidget
                     (item.IsChecked && (item.IsActive || string.IsNullOrWhiteSpace(item.Recurrence))) ||
                     item.ReminderTriggered || item.DueAt is not DateTime dueAt ||
                     item.ReminderMinutesBefore is not int minutesBefore ||
-                    DateTime.Now < dueAt.AddMinutes(-minutesBefore))
+                    now < dueAt.AddMinutes(-minutesBefore))
                 {
                     continue;
                 }
