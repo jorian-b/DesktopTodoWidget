@@ -506,15 +506,15 @@ namespace DesktopTodoWidget
         {
             DateTime now = DateTime.Now;
             _taskManager.RefreshTimerDisplays(now);
-            TaskProcessingResult result = _taskManager.ProcessScheduledTasks(now);
-            if (result.Changed)
+            TaskProcessingResult? result = _taskManager.ProcessScheduledTasks(now);
+            if (result != null)
             {
                 SaveTasks();
-            }
 
-            foreach (TaskAlarm alarm in result.Alarms)
-            {
-                _alarmPresenter.Show(alarm.Task, alarm.Detail, alarm.Group, timerId: alarm.TimerId);
+                foreach (TaskAlarm alarm in result.Alarms)
+                {
+                    _alarmPresenter.Show(alarm.Task, alarm.Detail, alarm.Group, timerId: alarm.TimerId);
+                }
             }
         }
 

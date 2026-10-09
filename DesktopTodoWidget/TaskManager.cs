@@ -226,9 +226,12 @@ namespace DesktopTodoWidget
 
         public void RefreshTimerDisplays(DateTime now)
         {
-            foreach (TaskItem timer in Tasks.Where(item => item.IsTimer && item.IsActive))
+            foreach (TaskItem timer in Tasks)
             {
-                timer.RefreshTimerDisplay(now);
+                if (timer.IsTimer && timer.IsActive)
+                {
+                    timer.RefreshTimerDisplay(now);
+                }
             }
         }
 
@@ -395,18 +398,18 @@ namespace DesktopTodoWidget
                 : item.GroupName;
         }
 
-        public TaskProcessingResult ProcessScheduledTasks(DateTime now)
+        public TaskProcessingResult? ProcessScheduledTasks(DateTime now)
         {
             bool changed = false;
-            var alarms = new List<TaskAlarm>();
-            var expiredTasks = new List<TaskItem>();
+            List<TaskAlarm>? alarms = null;
+            List<TaskItem>? expiredTasks = null;
             DateTime recurringTaskStartTime = now.Date.AddHours(2);
 
             foreach (TaskItem item in Tasks)
             {
                 if (item.DeletedAt is DateTime deletedAt && now - deletedAt >= TimeSpan.FromDays(1))
                 {
-                    expiredTasks.Add(item);
+                    (expiredTasks ??= new List<TaskItem>()).Add(item);
                     continue;
                 }
 
@@ -434,7 +437,7 @@ namespace DesktopTodoWidget
                         now >= timerDueAt)
                     {
                         item.ReminderTriggered = true;
-                        alarms.Add(new TaskAlarm(
+                        (alarms ??= new List<TaskAlarm>()).Add(new TaskAlarm(
                             "Timer",
                             "Timer finished",
                             GetTaskSetName(item),
@@ -460,22 +463,26 @@ namespace DesktopTodoWidget
                 string detail = minutesBefore == 0
                     ? $"Alarm at {alarmAt:MMM d, HH:mm}"
                     : $"Alarm {minutesBefore} minutes before at {alarmAt:MMM d, HH:mm}";
-                alarms.Add(new TaskAlarm(item.Text, detail, GetTaskSetName(item)));
+                (alarms ??= new List<TaskAlarm>()).Add(new TaskAlarm(item.Text, detail, GetTaskSetName(item)));
                 changed = true;
             }
 
-            foreach (TaskItem expiredTask in expiredTasks)
+            if (expiredTasks != null)
             {
-                Tasks.Remove(expiredTask);
-                changed = true;
+                foreach (TaskItem expiredTask in expiredTasks)
+                {
+                    Tasks.Remove(expiredTask);
+                    changed = true;
+                }
             }
 
-            if (changed)
+            if (!changed)
             {
-                TaskView.Refresh();
+                return null;
             }
 
-            return new TaskProcessingResult(alarms, changed);
+            TaskView.Refresh();
+            return new TaskProcessingResult((IReadOnlyList<TaskAlarm>?)alarms ?? Array.Empty<TaskAlarm>());
         }
 
         public static DateTime GetNextOccurrence(
@@ -557,5 +564,5 @@ namespace DesktopTodoWidget
 
     internal sealed record TaskAlarm(string Task, string Detail, string Group, Guid? TimerId = null);
 
-    internal sealed record TaskProcessingResult(IReadOnlyList<TaskAlarm> Alarms, bool Changed);
+    internal sealed record TaskProcessingResult(IReadOnlyList<TaskAlarm> Alarms);
 }

@@ -6,6 +6,7 @@ namespace DesktopTodoWidget
 {
     public class TaskItem : INotifyPropertyChanged
     {
+        private static readonly PropertyChangedEventArgs TimerDisplayChanged = new(nameof(TimerDisplay));
         private string? _timerDisplay;
 
         public event PropertyChangedEventHandler? PropertyChanged;
@@ -40,7 +41,7 @@ namespace DesktopTodoWidget
             }
 
             _timerDisplay = display;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TimerDisplay)));
+            PropertyChanged?.Invoke(this, TimerDisplayChanged);
         }
 
         [JsonIgnore]
