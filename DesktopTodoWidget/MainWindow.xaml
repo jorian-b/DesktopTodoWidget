@@ -21,14 +21,6 @@
                       GlassFrameThickness="0" />
     </WindowChrome.WindowChrome>
 
-    <Window.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="WidgetTheme.xaml"/>
-            </ResourceDictionary.MergedDictionaries>
-        </ResourceDictionary>
-    </Window.Resources>
-
     <Grid x:Name="MainRoot" Margin="6" MouseEnter="MainRoot_MouseEnter" MouseLeave="MainRoot_MouseLeave">
         <!-- Background -->
         <Border x:Name="BackgroundSurface" CornerRadius="8" Background="#CC1A1A1A" Opacity="0">
@@ -145,34 +137,10 @@
                 <ListBox x:Name="TaskList"
                          Grid.Row="2"
                          MaxHeight="0"
-                         Background="Transparent"
-                         BorderThickness="0"
-                         Padding="0"
                          AllowDrop="True"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                          PreviewMouseMove="TaskList_PreviewMouseMove"
                          Drop="TaskList_Drop"
-                         ScrollViewer.VerticalScrollBarVisibility="Auto"
-                         HorizontalContentAlignment="Stretch"
                          WindowChrome.IsHitTestVisibleInChrome="True">
-                    
-                    <ListBox.ItemContainerStyle>
-                        <Style TargetType="ListBoxItem">
-                            <Setter Property="Background" Value="Transparent"/>
-                            <Setter Property="BorderThickness" Value="0"/>
-                            <Setter Property="Padding" Value="0"/>
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ListBoxItem">
-                                        <Border Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
-                                            <ContentPresenter />
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                        </Style>
-                    </ListBox.ItemContainerStyle>
-
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                                 <Border CornerRadius="6"
