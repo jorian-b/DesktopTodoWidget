@@ -575,93 +575,19 @@ namespace DesktopTodoWidget
                 return;
             }
 
-            var datePicker = new DatePicker
+            var dialog = new ReminderDialog(item) { Owner = this };
+            if (dialog.ShowDialog() != true)
             {
-                SelectedDate = item.DueAt?.Date ?? DateTime.Today,
-                Margin = new Thickness(0, 4, 0, 12)
-            };
-            var timeInput = CreateDialogTextInput(item.DueAt?.ToString("HH:mm", CultureInfo.InvariantCulture) ?? "09:00");
-            var reminderChoice = CreateDialogChoice();
-            reminderChoice.SelectedValuePath = "Tag";
-            reminderChoice.Items.Add(new ComboBoxItem { Content = "No alert", Tag = "none" });
-            reminderChoice.Items.Add(new ComboBoxItem { Content = "At the scheduled time", Tag = "0" });
-            reminderChoice.Items.Add(new ComboBoxItem { Content = "5 minutes before", Tag = "5" });
-            reminderChoice.Items.Add(new ComboBoxItem { Content = "15 minutes before", Tag = "15" });
-            reminderChoice.Items.Add(new ComboBoxItem { Content = "1 hour before", Tag = "60" });
-            reminderChoice.SelectedValue = item.ReminderMinutesBefore?.ToString(CultureInfo.InvariantCulture) ?? "none";
-            var recurrenceChoice = CreateDialogChoice();
-            recurrenceChoice.SelectedValuePath = "Tag";
-            recurrenceChoice.Items.Add(new ComboBoxItem { Content = "Does not repeat", Tag = "none" });
-            recurrenceChoice.Items.Add(new ComboBoxItem { Content = "Daily", Tag = "Daily" });
-            recurrenceChoice.Items.Add(new ComboBoxItem { Content = "Weekly", Tag = "Weekly" });
-            recurrenceChoice.Items.Add(new ComboBoxItem { Content = "Every 2 weeks", Tag = "Biweekly" });
-            recurrenceChoice.Items.Add(new ComboBoxItem { Content = "Monthly", Tag = "Monthly" });
-            recurrenceChoice.Items.Add(new ComboBoxItem { Content = "Yearly", Tag = "Yearly" });
-            recurrenceChoice.SelectedValue = item.Recurrence ?? "none";
+                return;
+            }
 
-            var dialog = new Window
-            {
-                Title = "Task date and reminder",
-                Width = 310,
-                Height = 400,
-                ResizeMode = ResizeMode.NoResize,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                Owner = this,
-                WindowStyle = WindowStyle.ToolWindow,
-                Background = System.Windows.Media.Brushes.White,
-                Foreground = System.Windows.Media.Brushes.Black,
-                Content = null
-            };
-            var content = new StackPanel { Margin = new Thickness(18) };
-            content.Children.Add(new TextBlock
-            {
-                Text = item.Text,
-                FontSize = 16,
-                FontWeight = FontWeights.SemiBold,
-                TextTrimming = TextTrimming.CharacterEllipsis,
-                Margin = new Thickness(0, 0, 0, 12)
-            });
-            content.Children.Add(new TextBlock { Text = "Date" });
-            content.Children.Add(datePicker);
-            content.Children.Add(new TextBlock { Text = "Time (24-hour, HH:mm)" });
-            content.Children.Add(timeInput);
-            content.Children.Add(new TextBlock { Text = "Alert" });
-            content.Children.Add(reminderChoice);
-            content.Children.Add(new TextBlock { Text = "Repeat" });
-            content.Children.Add(recurrenceChoice);
-
-            var actions = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-            var cancelButton = new Button { Content = "Cancel", MinWidth = 72, Margin = new Thickness(0, 0, 8, 0), IsCancel = true };
-            var saveButton = new Button { Content = "Save", MinWidth = 72, IsDefault = true };
-            cancelButton.Click += (_, _) => dialog.DialogResult = false;
-            saveButton.Click += (_, _) =>
-            {
-                if (datePicker.SelectedDate is not DateTime selectedDate ||
-                    !TimeSpan.TryParseExact(timeInput.Text, @"hh\:mm", CultureInfo.InvariantCulture, out var selectedTime) ||
-                    selectedTime >= TimeSpan.FromDays(1))
-                {
-                    MessageBox.Show(dialog, "Select a date and enter a valid time in HH:mm format.", "Invalid date or time", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    return;
-                }
-
-                var selectedReminder = reminderChoice.SelectedValue?.ToString() ?? "none";
-                int? minutesBefore = selectedReminder == "none"
-                    ? null
-                    : int.Parse(selectedReminder, CultureInfo.InvariantCulture);
-                var selectedRecurrence = recurrenceChoice.SelectedValue?.ToString() ?? "none";
-                _taskManager.SetReminder(
-                    item,
-                    selectedDate.Date.Add(selectedTime),
-                    minutesBefore,
-                    selectedRecurrence == "none" ? null : selectedRecurrence);
-                SaveTasks();
-                dialog.DialogResult = true;
-            };
-            actions.Children.Add(cancelButton);
-            actions.Children.Add(saveButton);
-            content.Children.Add(actions);
-            dialog.Content = content;
-            dialog.ShowDialog();
+            _taskManager.SetReminder(
+                item,
+                dialog.DueAt,
+                dialog.ReminderMinutesBefore,
+                dialog.Recurrence,
+                dialog.RecurrenceDays);
+            SaveTasks();
         }
 
         private void TestAlarm_Click(object sender, RoutedEventArgs e)
@@ -697,15 +623,6 @@ namespace DesktopTodoWidget
             AlarmDetailText.Text = detail;
             AlarmOverlay.Visibility = Visibility.Visible;
             System.Media.SystemSounds.Exclamation.Play();
-        }
-
-        private static ComboBox CreateDialogChoice()
-        {
-            var choice = new ComboBox
-            {
-                Margin = new Thickness(0, 4, 0, 16)
-            };
-            return choice;
         }
 
         private static TextBox CreateDialogTextInput(string text)

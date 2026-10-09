@@ -1,0 +1,111 @@
+<Window x:Class="DesktopTodoWidget.ReminderDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Task reminder"
+        Width="440"
+        SizeToContent="Height"
+        MinHeight="500"
+        MaxHeight="760"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="ToolWindow"
+        Style="{DynamicResource ReminderDialogWindowStyle}">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ReminderDialogStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Border Style="{StaticResource ReminderDialogCardStyle}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="0,0,0,18">
+                <TextBlock Text="Schedule task"
+                           Style="{StaticResource ReminderDialogTitleStyle}"/>
+                <TextBlock x:Name="TaskName"
+                           Style="{StaticResource ReminderDialogTaskNameStyle}"/>
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                <StackPanel>
+                    <TextBlock Text="DATE AND TIME"
+                               Style="{StaticResource ReminderDialogSectionStyle}"/>
+                    <Grid Margin="0,8,0,18">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="12"/>
+                            <ColumnDefinition Width="120"/>
+                        </Grid.ColumnDefinitions>
+                        <DatePicker x:Name="DueDatePicker"
+                                    Grid.Column="0"
+                                    VerticalContentAlignment="Center"
+                                    Style="{StaticResource ReminderDialogDatePickerStyle}"/>
+                        <TextBox x:Name="TimeInput"
+                                 Grid.Column="2"
+                                 MaxLength="5"
+                                 VerticalContentAlignment="Center"
+                                 Style="{StaticResource ReminderDialogInputStyle}"
+                                 ToolTip="24-hour time, for example 09:30"/>
+                    </Grid>
+
+                    <TextBlock Text="ALERT"
+                               Style="{StaticResource ReminderDialogSectionStyle}"/>
+                    <ComboBox x:Name="AlertChoice"
+                              Margin="0,8,0,18"
+                              Style="{StaticResource ReminderDialogComboBoxStyle}"
+                              SelectedValuePath="Tag"/>
+
+                    <TextBlock Text="REPEAT"
+                               Style="{StaticResource ReminderDialogSectionStyle}"/>
+                    <ComboBox x:Name="RecurrenceChoice"
+                              Margin="0,8,0,4"
+                              Style="{StaticResource ReminderDialogComboBoxStyle}"
+                              SelectedValuePath="Tag"
+                              SelectionChanged="RecurrenceChoice_SelectionChanged"/>
+                    <TextBlock x:Name="RecurrenceHelp"
+                               Style="{StaticResource ReminderDialogHintStyle}"
+                               Margin="0,0,0,12"/>
+
+                    <StackPanel x:Name="WeekdaysPanel" Visibility="Collapsed">
+                        <TextBlock Text="REPEAT ON"
+                                   Style="{StaticResource ReminderDialogSectionStyle}"
+                                   Margin="0,4,0,8"/>
+                        <UniformGrid Columns="4" Rows="2">
+                            <CheckBox Content="Mon" Tag="Monday" Style="{StaticResource ReminderWeekdayStyle}"/>
+                            <CheckBox Content="Tue" Tag="Tuesday" Style="{StaticResource ReminderWeekdayStyle}"/>
+                            <CheckBox Content="Wed" Tag="Wednesday" Style="{StaticResource ReminderWeekdayStyle}"/>
+                            <CheckBox Content="Thu" Tag="Thursday" Style="{StaticResource ReminderWeekdayStyle}"/>
+                            <CheckBox Content="Fri" Tag="Friday" Style="{StaticResource ReminderWeekdayStyle}"/>
+                            <CheckBox Content="Sat" Tag="Saturday" Style="{StaticResource ReminderWeekdayStyle}"/>
+                            <CheckBox Content="Sun" Tag="Sunday" Style="{StaticResource ReminderWeekdayStyle}"/>
+                        </UniformGrid>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="2" Margin="0,16,0,0">
+                <TextBlock x:Name="ValidationMessage"
+                           Style="{StaticResource ReminderDialogErrorStyle}"
+                           Visibility="Collapsed"/>
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Margin="0,12,0,0">
+                    <Button Content="Cancel"
+                            IsCancel="True"
+                            Style="{StaticResource ReminderDialogSecondaryButtonStyle}"/>
+                    <Button Content="Save reminder"
+                            IsDefault="True"
+                            Click="SaveButton_Click"
+                            Style="{StaticResource ReminderDialogPrimaryButtonStyle}"/>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

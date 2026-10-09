@@ -11,3 +11,5 @@ if errorlevel 1 (
 )
 
 echo Release executable: "%PUBLISH_DIR%\DesktopTodoWidget.exe"
+
+pause

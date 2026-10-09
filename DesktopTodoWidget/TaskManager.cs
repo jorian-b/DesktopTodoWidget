@@ -8,6 +8,7 @@ namespace DesktopTodoWidget
 {
     internal sealed class TaskManager
     {
+        public const string SelectedWeekdaysRecurrence = "SelectedWeekdays";
         private static readonly string[] ReservedGroupNames = ["Daily", "Inactive", "Trash"];
         private readonly string _savePath;
 
@@ -195,7 +196,7 @@ namespace DesktopTodoWidget
             }
             else if (!string.IsNullOrWhiteSpace(item.Recurrence) && item.DueAt is DateTime scheduledAt)
             {
-                item.DueAt = GetNextOccurrence(scheduledAt, item.Recurrence, now);
+                item.DueAt = GetNextOccurrence(scheduledAt, item.Recurrence, now, item.RecurrenceDays ?? []);
                 item.IsActive = false;
                 item.IsChecked = false;
                 item.CompletedAt = null;
@@ -239,7 +240,7 @@ namespace DesktopTodoWidget
                 !string.IsNullOrWhiteSpace(item.Recurrence) &&
                 item.DueAt is DateTime scheduledAt)
             {
-                item.DueAt = GetNextOccurrence(scheduledAt, item.Recurrence, now);
+                item.DueAt = GetNextOccurrence(scheduledAt, item.Recurrence, now, item.RecurrenceDays ?? []);
                 item.IsActive = false;
                 item.ReminderTriggered = false;
                 item.CompletedAt = null;
@@ -258,13 +259,41 @@ namespace DesktopTodoWidget
             }
         }
 
-        public void SetReminder(TaskItem item, DateTime dueAt, int? minutesBefore, string? recurrence)
+        public void SetReminder(
+            TaskItem item,
+            DateTime dueAt,
+            int? minutesBefore,
+            string? recurrence,
+            IEnumerable<DayOfWeek>? recurrenceDays = null)
         {
+            List<DayOfWeek> selectedDays = recurrence == SelectedWeekdaysRecurrence
+                ? (recurrenceDays ?? Array.Empty<DayOfWeek>())
+                    .Where(day => Enum.IsDefined(typeof(DayOfWeek), day))
+                    .Distinct()
+                    .Order()
+                    .ToList()
+                : new List<DayOfWeek>();
+            if (recurrence == SelectedWeekdaysRecurrence && selectedDays.Count == 0)
+            {
+                throw new ArgumentException("At least one weekday must be selected.", nameof(recurrenceDays));
+            }
+
+            if (recurrence == SelectedWeekdaysRecurrence)
+            {
+                while (!selectedDays.Contains(dueAt.DayOfWeek))
+                {
+                    dueAt = dueAt.AddDays(1);
+                }
+            }
+
             bool scheduleChanged = item.DueAt != dueAt ||
-                                   item.ReminderMinutesBefore != minutesBefore;
+                                   item.ReminderMinutesBefore != minutesBefore ||
+                                   item.Recurrence != recurrence ||
+                                   !(item.RecurrenceDays ?? new List<DayOfWeek>()).SequenceEqual(selectedDays);
             item.DueAt = dueAt;
             item.ReminderMinutesBefore = minutesBefore;
             item.Recurrence = recurrence;
+            item.RecurrenceDays = selectedDays;
 
             if (string.IsNullOrWhiteSpace(recurrence) && !item.IsActive)
             {
@@ -368,8 +397,23 @@ namespace DesktopTodoWidget
             return new TaskProcessingResult(alarms, changed);
         }
 
-        public static DateTime GetNextOccurrence(DateTime scheduledAt, string recurrence, DateTime now)
+        public static DateTime GetNextOccurrence(
+            DateTime scheduledAt,
+            string recurrence,
+            DateTime now,
+            IReadOnlyCollection<DayOfWeek>? recurrenceDays = null)
         {
+            if (recurrence == SelectedWeekdaysRecurrence && recurrenceDays is { Count: > 0 })
+            {
+                DateTime nextWeekdayOccurrence = scheduledAt.AddDays(1);
+                while (nextWeekdayOccurrence <= now || !recurrenceDays.Contains(nextWeekdayOccurrence.DayOfWeek))
+                {
+                    nextWeekdayOccurrence = nextWeekdayOccurrence.AddDays(1);
+                }
+
+                return nextWeekdayOccurrence;
+            }
+
             DateTime nextOccurrence = AdvanceOccurrence(scheduledAt, recurrence);
             while (nextOccurrence <= now)
             {

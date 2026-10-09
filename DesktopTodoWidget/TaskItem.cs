@@ -10,6 +10,7 @@ namespace DesktopTodoWidget
         public int? ReminderMinutesBefore { get; set; }
         public bool ReminderTriggered { get; set; }
         public string? Recurrence { get; set; }
+        public List<DayOfWeek> RecurrenceDays { get; set; } = new();
         public bool IsActive { get; set; } = true;
         public bool IsUrgent { get; set; }
         public DateTime? CompletedAt { get; set; }
