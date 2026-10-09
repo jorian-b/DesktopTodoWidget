@@ -88,13 +88,13 @@
                                                Margin="0,0,10,0"/>
                                     <TextBlock x:Name="DateText"
                                                Grid.Column="1"
-                                               Foreground="#202938"
+                                               Foreground="#F2F5F8"
                                                VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="2"
                                                Text="&#xE70D;"
                                                FontFamily="Segoe MDL2 Assets"
                                                FontSize="10"
-                                               Foreground="#748196"
+                                               Foreground="#929DAA"
                                                VerticalAlignment="Center"
                                                Margin="10,0,0,0"/>
                                 </Grid>
