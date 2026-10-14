@@ -509,7 +509,15 @@ namespace DesktopTodoWidget
             TaskProcessingResult? result = _taskManager.ProcessScheduledTasks(now);
             if (result != null)
             {
-                SaveTasks();
+                if (result.TasksChanged)
+                {
+                    SaveTasks();
+                }
+
+                if (result.OverdueStateChanged)
+                {
+                    TaskCardVisuals.Refresh(TaskList, _isWidgetHovered);
+                }
 
                 foreach (TaskAlarm alarm in result.Alarms)
                 {
@@ -597,11 +605,20 @@ namespace DesktopTodoWidget
         private void ClearAlarm_Click(object sender, RoutedEventArgs e) =>
             _taskInteractions.ClearAlarm(sender);
 
-        private void UrgentToggle_Click(object sender, RoutedEventArgs e) =>
+        private void UrgentToggle_Click(object sender, RoutedEventArgs e)
+        {
             _taskInteractions.UrgentChanged(sender);
+            TaskCardVisuals.Refresh(TaskList, _isWidgetHovered);
+        }
 
         private void TaskList_PreviewMouseMove(object sender, MouseEventArgs e) =>
             _taskInteractions.BeginReorder(e);
+
+        private void TaskList_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) =>
+            _taskInteractions.BeginReorder(e);
+
+        private void TaskList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e) =>
+            _taskInteractions.EndReorder();
 
         private void TaskList_Drop(object sender, DragEventArgs e) =>
             _taskInteractions.Drop(e);

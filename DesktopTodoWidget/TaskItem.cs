@@ -7,13 +7,16 @@ namespace DesktopTodoWidget
     public class TaskItem : INotifyPropertyChanged
     {
         private static readonly PropertyChangedEventArgs TimerDisplayChanged = new(nameof(TimerDisplay));
+        private static readonly PropertyChangedEventArgs IsOverdueChanged = new(nameof(IsOverdue));
         private string? _timerDisplay;
+        private bool _isOverdue;
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         public bool IsChecked { get; set; }
         public string Text { get; set; } = "";
         public DateTime? DueAt { get; set; }
+        public int ShowDaysBefore { get; set; }
         public int? ReminderMinutesBefore { get; set; }
         public bool ReminderTriggered { get; set; }
         public string? Recurrence { get; set; }
@@ -30,7 +33,28 @@ namespace DesktopTodoWidget
         public bool HasReminder => DueAt != null && ReminderMinutesBefore != null;
 
         [JsonIgnore]
+        public bool IsOverdue => _isOverdue;
+
+        [JsonIgnore]
         public string TimerDisplay => _timerDisplay ?? FormatTimerDisplay(DateTime.Now);
+
+        public bool RefreshOverdueState(DateTime now)
+        {
+            bool isOverdue = !IsTimer &&
+                             IsActive &&
+                             DeletedAt == null &&
+                             !IsChecked &&
+                             DueAt is DateTime dueAt &&
+                             dueAt < now;
+            if (_isOverdue == isOverdue)
+            {
+                return false;
+            }
+
+            _isOverdue = isOverdue;
+            PropertyChanged?.Invoke(this, IsOverdueChanged);
+            return true;
+        }
 
         public void RefreshTimerDisplay(DateTime now)
         {

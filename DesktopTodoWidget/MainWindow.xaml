@@ -138,6 +138,8 @@
                          Grid.Row="2"
                          MaxHeight="0"
                          AllowDrop="True"
+                         PreviewMouseLeftButtonDown="TaskList_PreviewMouseLeftButtonDown"
+                         PreviewMouseLeftButtonUp="TaskList_PreviewMouseLeftButtonUp"
                          PreviewMouseMove="TaskList_PreviewMouseMove"
                          Drop="TaskList_Drop"
                          WindowChrome.IsHitTestVisibleInChrome="True">
@@ -216,31 +218,39 @@
                                                 </Style>
                                             </TextBlock.Style>
                                         </TextBlock>
-                                        <TextBlock Text="!"
-                                                   Foreground="#FFFF5C5C"
-                                                   FontSize="17"
-                                                   FontWeight="Bold"
-                                                   HorizontalAlignment="Right"
-                                                   VerticalAlignment="Top"
-                                                   IsHitTestVisible="False">
-                                            <TextBlock.Style>
-                                                <Style TargetType="TextBlock">
+                                        <Border Width="13"
+                                                Height="13"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Top"
+                                                Margin="0,0,0,0"
+                                                CornerRadius="7"
+                                                Background="#FF3028"
+                                                BorderBrush="#FFB8B0"
+                                                BorderThickness="1"
+                                                IsHitTestVisible="False">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
                                                     <Setter Property="Visibility" Value="Collapsed"/>
                                                     <Style.Triggers>
                                                         <MultiDataTrigger>
                                                             <MultiDataTrigger.Conditions>
                                                                 <Condition Binding="{Binding IsUrgent}" Value="True"/>
                                                                 <Condition Binding="{Binding IsChecked}" Value="False"/>
+                                                                <Condition Binding="{Binding IsTimer}" Value="False"/>
                                                             </MultiDataTrigger.Conditions>
                                                             <Setter Property="Visibility" Value="Visible"/>
                                                         </MultiDataTrigger>
-                                                        <DataTrigger Binding="{Binding ElementName=TaskCheckBox, Path=IsMouseOver}" Value="True">
-                                                            <Setter Property="Visibility" Value="Collapsed"/>
-                                                        </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
-                                            </TextBlock.Style>
-                                        </TextBlock>
+                                            </Border.Style>
+                                            <TextBlock Text="!"
+                                                       Foreground="White"
+                                                       FontSize="9"
+                                                       FontWeight="Bold"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       IsHitTestVisible="False"/>
+                                        </Border>
                                     </Grid>
 
                                     <Grid Grid.Column="1">

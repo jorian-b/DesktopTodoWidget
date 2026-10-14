@@ -113,6 +113,27 @@
                                  ToolTipService.InitialShowDelay="150"/>
                     </Grid>
 
+                    <TextBlock Text="DAILY VISIBILITY"
+                               Style="{StaticResource SectionLabelStyle}"/>
+                    <Grid Margin="0,8,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="76"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Show in Daily this many days before"
+                                   Style="{StaticResource HintTextStyle}"
+                                   VerticalAlignment="Center"/>
+                        <TextBox x:Name="ShowDaysBeforeInput"
+                                 Grid.Column="1"
+                                 MaxLength="10"
+                                 TextAlignment="Center"
+                                 VerticalContentAlignment="Center"
+                                 Style="{StaticResource InputFieldStyle}"/>
+                    </Grid>
+                    <TextBlock Text="0 shows it on the due date. Overdue tasks stay visible."
+                               Style="{StaticResource HintTextStyle}"
+                               Margin="0,0,0,18"/>
+
                     <TextBlock Text="ALERT"
                                Style="{StaticResource SectionLabelStyle}"/>
                     <ComboBox x:Name="AlertChoice"

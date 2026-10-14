@@ -9,6 +9,7 @@ namespace DesktopTodoWidget
     public partial class ReminderDialog : Window
     {
         public DateTime DueAt { get; private set; }
+        public int ShowDaysBefore { get; private set; }
         public int? ReminderMinutesBefore { get; private set; }
         public string? Recurrence { get; private set; }
         public IReadOnlyList<DayOfWeek> RecurrenceDays { get; private set; } = Array.Empty<DayOfWeek>();
@@ -22,6 +23,7 @@ namespace DesktopTodoWidget
             DueCalendar.DisplayDate = initialDate;
             UpdateDateText(initialDate);
             TimeInput.Text = item.DueAt?.ToString("HH:mm", CultureInfo.InvariantCulture) ?? "09:00";
+            ShowDaysBeforeInput.Text = Math.Max(0, item.ShowDaysBefore).ToString(CultureInfo.InvariantCulture);
 
             AlertChoice.Items.Add(new ComboBoxItem { Content = "No alert", Tag = "none" });
             AlertChoice.Items.Add(new ComboBoxItem { Content = "At the scheduled time", Tag = "0" });
@@ -101,6 +103,12 @@ namespace DesktopTodoWidget
                 return;
             }
 
+            if (!int.TryParse(ShowDaysBeforeInput.Text, NumberStyles.None, CultureInfo.InvariantCulture, out int showDaysBefore))
+            {
+                ShowValidationError("Enter a whole number of days, starting with 0 for the due date.");
+                return;
+            }
+
             string selectedRecurrence = RecurrenceChoice.SelectedValue?.ToString() ?? "none";
             DayOfWeek[] selectedWeekdays = GetWeekdayCheckBoxes()
                 .Where(checkBox => checkBox.IsChecked == true)
@@ -128,6 +136,7 @@ namespace DesktopTodoWidget
             }
 
             DueAt = selectedDate.Date.Add(selectedTime);
+            ShowDaysBefore = showDaysBefore;
             ReminderMinutesBefore = selectedMinutesBefore;
             Recurrence = selectedRecurrence == "none" ? null : selectedRecurrence;
             RecurrenceDays = selectedRecurrence == TaskManager.SelectedWeekdaysRecurrence

@@ -11,6 +11,7 @@ namespace DesktopTodoWidget
         public const string SelectedWeekdaysRecurrence = "SelectedWeekdays";
         private static readonly string[] ReservedGroupNames = ["Daily", "Inactive", "Trash"];
         private readonly string _savePath;
+        private DateTime _lastDailyViewDate = DateTime.Today;
 
         public ObservableCollection<TaskItem> Tasks { get; } = new();
         public ObservableCollection<string> CustomTaskGroups { get; } = new();
@@ -320,6 +321,7 @@ namespace DesktopTodoWidget
             else
             {
                 item.CompletedAt = item.IsChecked ? now : null;
+                TaskView.Refresh();
             }
         }
 
@@ -328,8 +330,14 @@ namespace DesktopTodoWidget
             DateTime dueAt,
             int? minutesBefore,
             string? recurrence,
+            int showDaysBefore,
             IEnumerable<DayOfWeek>? recurrenceDays = null)
         {
+            if (showDaysBefore < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(showDaysBefore));
+            }
+
             List<DayOfWeek> selectedDays = recurrence == SelectedWeekdaysRecurrence
                 ? (recurrenceDays ?? Array.Empty<DayOfWeek>())
                     .Where(day => Enum.IsDefined(typeof(DayOfWeek), day))
@@ -352,12 +360,15 @@ namespace DesktopTodoWidget
 
             bool scheduleChanged = item.DueAt != dueAt ||
                                    item.ReminderMinutesBefore != minutesBefore ||
+                                   item.ShowDaysBefore != showDaysBefore ||
                                    item.Recurrence != recurrence ||
                                    !(item.RecurrenceDays ?? new List<DayOfWeek>()).SequenceEqual(selectedDays);
             item.DueAt = dueAt;
             item.ReminderMinutesBefore = minutesBefore;
+            item.ShowDaysBefore = showDaysBefore;
             item.Recurrence = recurrence;
             item.RecurrenceDays = selectedDays;
+            item.RefreshOverdueState(DateTime.Now);
 
             if (string.IsNullOrWhiteSpace(recurrence) && !item.IsActive)
             {
@@ -401,12 +412,17 @@ namespace DesktopTodoWidget
         public TaskProcessingResult? ProcessScheduledTasks(DateTime now)
         {
             bool changed = false;
+            bool overdueStateChanged = false;
+            bool dailyVisibilityDateChanged = now.Date != _lastDailyViewDate;
+            _lastDailyViewDate = now.Date;
             List<TaskAlarm>? alarms = null;
             List<TaskItem>? expiredTasks = null;
             DateTime recurringTaskStartTime = now.Date.AddHours(2);
 
             foreach (TaskItem item in Tasks)
             {
+                overdueStateChanged |= item.RefreshOverdueState(now);
+
                 if (item.DeletedAt is DateTime deletedAt && now - deletedAt >= TimeSpan.FromDays(1))
                 {
                     (expiredTasks ??= new List<TaskItem>()).Add(item);
@@ -476,13 +492,20 @@ namespace DesktopTodoWidget
                 }
             }
 
-            if (!changed)
+            if (changed || overdueStateChanged || dailyVisibilityDateChanged)
+            {
+                TaskView.Refresh();
+            }
+
+            if (!changed && !overdueStateChanged)
             {
                 return null;
             }
 
-            TaskView.Refresh();
-            return new TaskProcessingResult((IReadOnlyList<TaskAlarm>?)alarms ?? Array.Empty<TaskAlarm>());
+            return new TaskProcessingResult(
+                (IReadOnlyList<TaskAlarm>?)alarms ?? Array.Empty<TaskAlarm>(),
+                changed,
+                overdueStateChanged);
         }
 
         public static DateTime GetNextOccurrence(
@@ -521,15 +544,36 @@ namespace DesktopTodoWidget
             return SelectedMode switch
             {
                 TaskListMode.Daily => item.IsActive && item.DeletedAt == null &&
-                                      string.Equals(item.GroupName, "Daily", StringComparison.OrdinalIgnoreCase),
-                TaskListMode.Inactive => !item.IsActive && item.DeletedAt == null &&
-                                         !string.IsNullOrWhiteSpace(item.Recurrence),
+                                      string.Equals(item.GroupName, "Daily", StringComparison.OrdinalIgnoreCase) &&
+                                      IsVisibleInDaily(item),
+                TaskListMode.Inactive => item.DeletedAt == null &&
+                                         ((!item.IsActive && !string.IsNullOrWhiteSpace(item.Recurrence)) ||
+                                          IsUpcomingOutsideDaily(item)),
                 TaskListMode.Trash => item.DeletedAt != null,
                 TaskListMode.Custom => item.IsActive && item.DeletedAt == null &&
                                        string.Equals(item.GroupName, SelectedCustomGroup, StringComparison.OrdinalIgnoreCase),
                 _ => false
             };
         }
+
+        private static bool IsVisibleInDaily(TaskItem item)
+        {
+            if (item.IsTimer || item.DueAt is not DateTime dueAt)
+            {
+                return true;
+            }
+
+            return (dueAt.Date - DateTime.Today).Days <= Math.Max(0, item.ShowDaysBefore);
+        }
+
+        private static bool IsUpcomingOutsideDaily(TaskItem item) =>
+            item.IsActive &&
+            !item.IsChecked &&
+            !item.IsTimer &&
+            string.Equals(item.GroupName, "Daily", StringComparison.OrdinalIgnoreCase) &&
+            item.DueAt is DateTime dueAt &&
+            dueAt.Date > DateTime.Today &&
+            !IsVisibleInDaily(item);
 
         private void AddGroupIfValid(string? name)
         {
@@ -564,5 +608,8 @@ namespace DesktopTodoWidget
 
     internal sealed record TaskAlarm(string Task, string Detail, string Group, Guid? TimerId = null);
 
-    internal sealed record TaskProcessingResult(IReadOnlyList<TaskAlarm> Alarms);
+    internal sealed record TaskProcessingResult(
+        IReadOnlyList<TaskAlarm> Alarms,
+        bool TasksChanged,
+        bool OverdueStateChanged);
 }
